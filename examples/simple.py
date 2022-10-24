@@ -2,6 +2,7 @@
 
 
 from typing import List
+
 import pyctor
 from pyctor.actor import Actor
 from pyctor.behavior import AbstractBehavior, Behavior, Receive
@@ -31,17 +32,17 @@ def handleMessage(ctx: Context, x: Message[int]) -> None:
 
 def main() -> None:
     myProp1 = Behaviors.fromCallable(handleMessage)
-    myProp2 = Behaviors.fromBehavior(MyActor)
+    # myProp2 = Behaviors.fromProducer(lambda: MyActor())
 
     system = pyctor.newRootContext()
 
     ref1 = system.spawn(myProp1)
-    ref2 = system.spawn(myProp2)
+    # ref2 = system.spawn(myProp2)
 
     system.send(ref1, 4)
-    system.send(ref1, "test")  # should fail
-    system.send(ref2, "test")
-    system.send(ref2, 4)  # should fail
+    # system.send(ref1, "test")  # should fail
+    # system.send(ref2, "test")
+    # system.send(ref2, 4)  # should fail
 
 
 if __name__ == "__main__":

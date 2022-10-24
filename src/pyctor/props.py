@@ -1,10 +1,9 @@
 from typing import Callable, Generic, TypeAlias
-from pyctor import T
 
 from pyctor.actor import Actor
 from pyctor.context import Context
 from pyctor.messages import Message
-
+from pyctor.types import T
 
 Producer: TypeAlias = Callable[[], Actor[T]]
 Handler: TypeAlias = Callable[[Context, Message[T]], None]

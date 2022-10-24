@@ -1,8 +1,6 @@
-from typing import TypeVar
-from pyctor import T, U
 from pyctor.behavior import Behavior
-from pyctor.props import Props
 from pyctor.ref import Ref
+from pyctor.types import U
 
 
 class Spawner:

@@ -1,7 +1,7 @@
 from abc import ABC
-from typing import TypeVar, Union
+from typing import Union
 
-from pyctor import T
+from pyctor.types import T
 
 
 class Signal(ABC):

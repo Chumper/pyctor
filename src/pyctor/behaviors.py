@@ -1,9 +1,10 @@
 from typing import Callable
-from pyctor import T, U
+
 from pyctor.behavior import AbstractBehavior, Behavior
 from pyctor.context import Context
 from pyctor.messages import Message
-from pyctor.props import Handler, Producer, fromCallable
+from pyctor.props import Handler, Producer
+from pyctor.types import T
 
 
 class Behaviors:
@@ -21,4 +22,8 @@ class Behaviors:
 
     @staticmethod
     def fromBehavior(func: AbstractBehavior[T]) -> Behavior[T]:
+        pass
+
+    @staticmethod
+    def fromProducer(func: Producer[T]) -> Behavior[T]:
         pass
