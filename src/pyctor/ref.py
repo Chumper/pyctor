@@ -1,7 +1,7 @@
+from typing import Generic, TypeVar
 
-from typing import TypeVar
+from pyctor import T
 
-T = TypeVar("T")
 
-class Ref[T]:
+class Ref(Generic[T]):
     pass

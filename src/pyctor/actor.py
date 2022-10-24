@@ -1,10 +1,9 @@
+from typing import Any, Generic
+from pyctor import T
 
-from typing import Any, TypeVar, Union
+from pyctor.messages import Message
 
-from pyctor.messages import SystemMessage
 
-T = TypeVar("T")
-
-class Actor[T]():
-    def receive(msg: Union[SystemMessage, T]):
+class Actor(Generic[T]):
+    def receive(self, msg: Message[T]):
         pass

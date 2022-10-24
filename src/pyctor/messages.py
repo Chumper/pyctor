@@ -1,17 +1,27 @@
-class SystemMessage:
+from abc import ABC
+from typing import TypeVar, Union
+
+from pyctor import T
+
+
+class Signal(ABC):
     pass
 
-class PoisionPill(SystemMessage):
+
+class PoisionPill(Signal):
     pass
 
-class Started(SystemMessage):
+
+class Started(Signal):
     pass
 
-class Restarted(SystemMessage):
+
+class Restarted(Signal):
     pass
 
-class Stopping(SystemMessage):
+
+class Stopped(Signal):
     pass
 
-class Stopped(SystemMessage):
-    pass
+
+Message = Union[T, Signal]
