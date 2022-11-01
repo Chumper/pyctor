@@ -1,16 +1,110 @@
 from abc import ABC, abstractmethod
-from asyncio import Queue
-from typing import Callable, Generic, Type
+from enum import Enum, EnumMeta
+from typing import Awaitable, Callable, Generic, Type, TypeAlias, final, get_origin
+
+import trio
+import trio_typing
+from pyctor.messages import Message, Signal
 
 from pyctor.types import T, U
 
 
-class Behavior(Generic[T]):
-    def handle(self, msg: T) -> None:
+class Behavior(ABC, Generic[T]):
+    pass
+
+
+class LifecycleSignal(Enum):
+    Started = 1
+    Stopped = 2
+
+
+class BehaviorHandler(Behavior[T], ABC):
+    @abstractmethod
+    async def _handle(self, msg: T | LifecycleSignal) -> Behavior[T]:
         pass
 
-class ExtensibleBehavior(Behavior[T]):
-    pass
+
+# Can't use enums...
+@final
+class SameBehaviorSignal(Behavior[T]):
+    async def handler(self, msg: T) -> "SameBehaviorSignal":
+        return self
+
+
+@final
+class StopBehaviorSignal(Behavior[T]):
+    async def handler(self, msg: T) -> "StopBehaviorSignal":
+        return self
+
+
+@final
+class RestartBehaviorSignal(Behavior[T]):
+    async def handler(self, msg: T) -> "RestartBehaviorSignal":
+        return self
+
+
+class MessageBehavior(BehaviorHandler[T]):
+    _message_handler: Callable[[T], Awaitable[Behavior[T]]]
+
+    def __init__(
+        self,
+        message_handler: Callable[[T], Awaitable[Behavior[T]]] | None = None,
+        **kwargs,
+    ) -> None:
+        super().__init__()
+        if message_handler:
+            self._message_handler = message_handler
+        else:
+            self._message_handler = Behaviors.Same.handler
+
+    async def _handle(self, msg: T | LifecycleSignal) -> "Behavior[T]":
+        return await self._message_handler(msg)  # type: ignore
+
+
+class SignalBehavior(Behavior[T]):
+    _signal_handler: Callable[[LifecycleSignal], Awaitable["Behavior[T]"]]
+
+    def __init__(
+        self,
+        signal_handler: Callable[[LifecycleSignal], Awaitable["Behavior[T]"]]
+        | None = None,
+        **kwargs,
+    ) -> None:
+        super().__init__()
+        if signal_handler:
+            self._signal_handler = signal_handler
+        else:
+            self._signal_handler = Behaviors.Same.handler
+
+    async def _handle(self, signal: T | LifecycleSignal) -> "Behavior[T]":
+        return await self._signal_handler(signal)  # type: ignore
+
+
+class CompositeBehavior(Behavior[T]):
+    _signal_behavior: SignalBehavior[T]
+    _message_behavior: MessageBehavior[T]
+
+    def __init__(
+        self,
+        signal_handler: Callable[[LifecycleSignal], Awaitable["Behavior[T]"]]
+        | None = None,
+        message_handler: Callable[[T], Awaitable[Behavior[T]]] | None = None,
+    ) -> None:
+        super().__init__()
+        self._signal_behavior = SignalBehavior(signal_handler)
+        self._message_behavior = MessageBehavior(message_handler)
+
+    async def _handle(self, msg: T | LifecycleSignal) -> "Behavior[T]":
+        match msg:
+            case LifecycleSignal():
+                return await self._signal_behavior._handle(msg)
+            case _:
+                return await self._message_behavior._handle(msg)
+
+
+class StopBehavior(MessageBehavior[T]):
+    async def _handle_message(self, msg: T) -> "Behavior[T]":
+        raise Exception("Actor is stopped")
 
 
 class Receive(ABC, Generic[T]):
@@ -20,35 +114,128 @@ class Receive(ABC, Generic[T]):
 
 
 class ReceiveBuilder(Generic[T]):
-    def build(self) -> Receive[T]:
+    def build(self) -> Receive[T]:  # type: ignore
         pass
 
-    def onMessage(self, clazz: Type[U], func: Callable[[U], Behavior[T]]) -> "ReceiveBuilder[T]":
+    def onMessage(
+        self, clazz: Type[U], func: Callable[[U], Behavior[T]]
+    ) -> "ReceiveBuilder[T]":
+        return self
+
+
+class BehaviorBuilder(Generic[T]):
+    def build(self) -> Behavior[T]:  # type: ignore
         pass
 
+    def on_message(
+        self, clazz: Type[U], func: Callable[[U], Behavior[T]]
+    ) -> "BehaviorBuilder[T]":
+        return self
 
-class AbstractBehavior(ABC, Behavior[T]):
-    @abstractmethod
-    def createReceive(self) -> Receive[T]:
-        pass
 
-    def newReceiveBuilder(self) -> ReceiveBuilder[T]:
-        pass
+class BehaviorImpl(Behavior[T]):
+    _send: trio.abc.SendChannel[T | LifecycleSignal]
+    _receive: trio.abc.ReceiveChannel[T | LifecycleSignal]
+    _behavior: BehaviorHandler[T]
+    _ref: 'Ref[T]'
 
-class BehaviorImplementation(Behavior[T]):
-    _queue: Queue[T]
-    _behavior: Behavior[T]
-    _stopped: bool = False
-
-    def __init__(self, behavior: Behavior[T]) -> None:
+    def __init__(
+        self,
+        behavior: BehaviorHandler[T],
+    ) -> None:
         super().__init__()
-        self._queue = Queue() # TODO: reference loop
+        self._send, self._receive = trio.open_memory_channel(0)
         self._behavior = behavior
+        self._ref = Ref(self._behavior)
+
+    async def handle(self, msg: T | LifecycleSignal) -> None:
+        # put into channel
+        await self._send.send(msg)
+
+    async def behavior_task(self):
+        while True:
+            msg = await self._receive.receive()
+            await self._behavior._handle(msg)
+
+
+class Behaviors:
+
+    Same: SameBehaviorSignal = SameBehaviorSignal()
+    Stop: StopBehaviorSignal = StopBehaviorSignal()
+    Restart: RestartBehaviorSignal = RestartBehaviorSignal()
+
+    @staticmethod
+    def setup(factory: Callable[["Context[T]"], Behavior[T]]) -> Behavior[T]:
+        """
+        The setup is run when an actor is created.
+        It can be used to prepare resources that are needed before the first message arrives.
+        """
+        return Behaviors.Same
+
+    @staticmethod
+    def receive(func: Callable[[T], Awaitable[Behavior[T]]]) -> Behavior[T]:
+        """
+        Defines a Behavior that handles custom messages.
+        """
+        return MessageBehavior(message_handler=func)
+
+    @staticmethod
+    def receive_message(
+        func: Callable[[T], Awaitable[Behavior[T]]]
+    ) -> MessageBehavior[T]:
+        """
+        Defines a Behavior that handles custom messages and returns the next Behavior.
+        """
+        return MessageBehavior(message_handler=func)
+
+    @staticmethod
+    def receive_signal(
+        func: Callable[[LifecycleSignal], Awaitable[SignalBehavior[T]]]
+    ) -> SignalBehavior[T]:
+        """
+        Defines a Behavior that handles a lifecycle signal and returns a behavior
+        """
+        return SignalBehavior(signal_handler=func)
+
+    # @staticmethod
+    # def receive_context(func: Callable[[Context, Message[T]], Behavior[T]]) -> None:
+    #     pass
+
+    # @staticmethod
+    # def fromCallable(func: Handler[T]) -> Behavior[T]:
+    #     return Behaviors.Same
+
+    # @staticmethod
+    # def fromBehavior(func: AbstractBehavior[T]) -> Behavior[T]:
+    #     return Behaviors.Same
+
+    # @staticmethod
+    # def fromProducer(func: Producer[T]) -> Behavior[T]:
+    #     return Behaviors.Same
+
+
+class Ref(Generic[T]):
+    _impl: BehaviorHandler[T]
+
+    def __init__(self, behavior: BehaviorHandler[T]) -> None:
+        super().__init__()
+        self._impl = behavior
 
     def send(self, msg: T) -> None:
-        self._queue.put_nowait(msg)
+        match self._impl:
+            case MessageBehavior():
+                self._impl._handle(msg)
+            case _:
+                raise Exception(f"Unhandled message: {msg}")
 
-    async def run(self) -> None:
-        while not self._stopped:
-            item = await self._queue.get()
-            self._behavior.handle(item)
+
+class Sender:
+    def send(self, ref: Ref[T], msg: T):
+        pass
+
+
+class Context(Generic[T], Sender):
+    def self(self) -> Ref[T]:  # type: ignore
+        pass
+
+    pass
