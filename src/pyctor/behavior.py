@@ -4,8 +4,8 @@ from typing import Awaitable, Callable, Generic, Type, TypeAlias, final, get_ori
 
 import trio
 import trio_typing
-from pyctor.messages import Message, Signal
 
+from pyctor.messages import Message, Signal
 from pyctor.types import T, U
 
 
@@ -21,6 +21,8 @@ class LifecycleSignal(Enum):
 class BehaviorHandler(Behavior[T], ABC):
     @abstractmethod
     async def _handle(self, msg: T | LifecycleSignal) -> Behavior[T]:
+        pass
+    async def _setup(self, ctx: 'Context[T]') -> None:
         pass
 
 
@@ -146,15 +148,18 @@ class BehaviorImpl(Behavior[T]):
         super().__init__()
         self._send, self._receive = trio.open_memory_channel(0)
         self._behavior = behavior
-        self._ref = Ref(self._behavior)
+        self._ref = Ref(self)
 
     async def handle(self, msg: T | LifecycleSignal) -> None:
         # put into channel
+        # print("Put into channel")
         await self._send.send(msg)
 
     async def behavior_task(self):
+        # call setup method
         while True:
             msg = await self._receive.receive()
+            # print("Got from channel")
             await self._behavior._handle(msg)
 
 
@@ -165,7 +170,7 @@ class Behaviors:
     Restart: RestartBehaviorSignal = RestartBehaviorSignal()
 
     @staticmethod
-    def setup(factory: Callable[["Context[T]"], Behavior[T]]) -> Behavior[T]:
+    def setup(factory: Callable[["Context[T]"], Awaitable[Behavior[T]]]) -> Behavior[T]:
         """
         The setup is run when an actor is created.
         It can be used to prepare resources that are needed before the first message arrives.
@@ -215,18 +220,14 @@ class Behaviors:
 
 
 class Ref(Generic[T]):
-    _impl: BehaviorHandler[T]
+    _impl: BehaviorImpl[T]
 
-    def __init__(self, behavior: BehaviorHandler[T]) -> None:
+    def __init__(self, behavior: BehaviorImpl[T]) -> None:
         super().__init__()
         self._impl = behavior
 
-    def send(self, msg: T) -> None:
-        match self._impl:
-            case MessageBehavior():
-                self._impl._handle(msg)
-            case _:
-                raise Exception(f"Unhandled message: {msg}")
+    async def send(self, msg: T) -> None:
+        await self._impl.handle(msg)
 
 
 class Sender:
@@ -234,8 +235,9 @@ class Sender:
         pass
 
 
-class Context(Generic[T], Sender):
+class Context(Generic[T]):
     def self(self) -> Ref[T]:  # type: ignore
         pass
 
-    pass
+    def spawn(self, behavior: Behavior[T]) -> Ref[T]: # type: ignore
+        pass

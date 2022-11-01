@@ -2,6 +2,7 @@ from contextlib import _AsyncGeneratorContextManager, asynccontextmanager
 from typing import AsyncGenerator, Generic
 
 import trio
+
 from pyctor.behavior import Behavior, BehaviorHandler, BehaviorImpl, Ref
 from pyctor.types import T
 
@@ -37,5 +38,5 @@ async def actor_system(root_behavior: Behavior[T]) -> AsyncGenerator[ActorSystem
             n.start_soon(b.behavior_task)
             yield actor_system
     finally:
-        print("Actor System is shutting down")
+        pass
                 
