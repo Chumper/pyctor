@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum, EnumMeta
-from typing import Awaitable, Callable, Generic, Type, TypeAlias, final, get_origin
+from typing import Awaitable, Callable, Generic, Type, TypeAlias, cast, final, get_args, get_origin
 
 import trio
 import trio_typing
@@ -20,9 +20,9 @@ class LifecycleSignal(Enum):
 
 class BehaviorHandler(Behavior[T], ABC):
     @abstractmethod
-    async def _handle(self, msg: T | LifecycleSignal) -> Behavior[T]:
+    async def _handle(self, ctx: 'Context[T]', msg: T | LifecycleSignal) -> Behavior[T]:
         pass
-    async def _setup(self, ctx: 'Context[T]') -> None:
+    async def _setup(self, ctx: 'Context[T]') -> Behavior[T]:
         pass
 
 
@@ -45,66 +45,27 @@ class RestartBehaviorSignal(Behavior[T]):
         return self
 
 
-class MessageBehavior(BehaviorHandler[T]):
-    _message_handler: Callable[[T], Awaitable[Behavior[T]]]
+class BehaviorHandlerImpl(BehaviorHandler[T]):
+    _handler: Callable[['Context[T]'], BehaviorHandler[T]]
+    _behavior: BehaviorHandler[T]
 
-    def __init__(
-        self,
-        message_handler: Callable[[T], Awaitable[Behavior[T]]] | None = None,
-        **kwargs,
-    ) -> None:
-        super().__init__()
-        if message_handler:
-            self._message_handler = message_handler
-        else:
-            self._message_handler = Behaviors.Same.handler
+    def __init__(self, handler: Callable[['Context[T]'], BehaviorHandler[T]]) -> None:
+        self._handler = handler
 
-    async def _handle(self, msg: T | LifecycleSignal) -> "Behavior[T]":
-        return await self._message_handler(msg)  # type: ignore
+    async def _setup(self, ctx: 'Context[T]') -> None:
+        self._behavior = self._handler(ctx)
 
+    async def _handle(self, msg: T | LifecycleSignal) -> Behavior[T]:
+        return await self._behavior._handle(msg)
+    
 
-class SignalBehavior(Behavior[T]):
-    _signal_handler: Callable[[LifecycleSignal], Awaitable["Behavior[T]"]]
+class StopBehavior(BehaviorHandlerImpl[T]):
+    def __init__(self, handler: Callable[['Context[T]'], BehaviorHandler[T]]) -> None:
+        def stop_behavior(ctx: 'Context[T]') -> BehaviorHandler[T]:
+            return 
+            pass
+        super().__init__(stop_behavior)
 
-    def __init__(
-        self,
-        signal_handler: Callable[[LifecycleSignal], Awaitable["Behavior[T]"]]
-        | None = None,
-        **kwargs,
-    ) -> None:
-        super().__init__()
-        if signal_handler:
-            self._signal_handler = signal_handler
-        else:
-            self._signal_handler = Behaviors.Same.handler
-
-    async def _handle(self, signal: T | LifecycleSignal) -> "Behavior[T]":
-        return await self._signal_handler(signal)  # type: ignore
-
-
-class CompositeBehavior(Behavior[T]):
-    _signal_behavior: SignalBehavior[T]
-    _message_behavior: MessageBehavior[T]
-
-    def __init__(
-        self,
-        signal_handler: Callable[[LifecycleSignal], Awaitable["Behavior[T]"]]
-        | None = None,
-        message_handler: Callable[[T], Awaitable[Behavior[T]]] | None = None,
-    ) -> None:
-        super().__init__()
-        self._signal_behavior = SignalBehavior(signal_handler)
-        self._message_behavior = MessageBehavior(message_handler)
-
-    async def _handle(self, msg: T | LifecycleSignal) -> "Behavior[T]":
-        match msg:
-            case LifecycleSignal():
-                return await self._signal_behavior._handle(msg)
-            case _:
-                return await self._message_behavior._handle(msg)
-
-
-class StopBehavior(MessageBehavior[T]):
     async def _handle_message(self, msg: T) -> "Behavior[T]":
         raise Exception("Actor is stopped")
 
@@ -182,6 +143,11 @@ class Behaviors:
         """
         Defines a Behavior that handles custom messages.
         """
+        async def receive_setup(ctx: 'Context[T]') -> Behavior[T]:
+            async def receive_handler(ctx: 'Context[T]', msg: T | LifecycleSignal) -> Behavior[T]:
+                print(get_args(msg))
+                pass
+            return receive_handler
         return MessageBehavior(message_handler=func)
 
     @staticmethod
