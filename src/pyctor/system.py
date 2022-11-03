@@ -1,17 +1,17 @@
-from contextlib import _AsyncGeneratorContextManager, asynccontextmanager
+from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Generic
 
 import trio
 
-from pyctor.behavior import Behavior, BehaviorHandler, BehaviorImpl, Ref
+from pyctor.behavior import Behavior, BehaviorImpl, BehaviorProcessor, Ref
 from pyctor.types import T
 
 
 class ActorSystem(Generic[T]):
-    _root_behavior: BehaviorImpl[T]
+    _root_behavior: BehaviorProcessor[T]
     _nursery: trio.Nursery
 
-    def __init__(self, root_behavior: BehaviorImpl[T], nursery: trio.Nursery) -> None:
+    def __init__(self, root_behavior: BehaviorProcessor[T], nursery: trio.Nursery) -> None:
         super().__init__()
         self._root_behavior = root_behavior
         self._nursery = nursery
@@ -21,18 +21,20 @@ class ActorSystem(Generic[T]):
 
     def stop(self) -> None:
         """
-        Stops the actor system immediately
+        Stops the actor system by sending a stop message to the root behavior
         """
         self._nursery.cancel_scope.cancel()
 
 @asynccontextmanager
 async def actor_system(root_behavior: Behavior[T]) -> AsyncGenerator[ActorSystem[T], None]:
+    # narrow class down to a BehaviorProtocol
+    assert isinstance(root_behavior, BehaviorImpl), "root behavior needs to implement the BehaviorProtocol"
+
     # root nursery that will start all actors and wait for the whole actor system to terminate
     try:
         async with trio.open_nursery() as n:
             # create a BehaviorImpl
-            assert isinstance(root_behavior, BehaviorHandler)
-            b = BehaviorImpl[T](behavior=root_behavior)
+            b = BehaviorProcessor(behavior=root_behavior)
             actor_system = ActorSystem(b, n)
             # start the root task
             n.start_soon(b.behavior_task)
