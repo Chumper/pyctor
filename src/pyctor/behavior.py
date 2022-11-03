@@ -1,16 +1,7 @@
 from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
-from typing import (
-    Awaitable,
-    Callable,
-    Generic,
-    Protocol,
-    TypeAlias,
-    final,
-    get_args,
-    runtime_checkable,
-)
+from typing import Awaitable, Callable, Generic, TypeAlias
 
 import trio
 
@@ -182,11 +173,12 @@ class Behaviors:
         Defines a Behavior that handles custom messages.
         """
 
+        # Define an outer setup handler that just returns the provided func
         async def receive_setup(ctx: "Context[T]") -> BehaviorHandler[T]:
             async def receive_handler(
                 ctx: "Context[T]", msg: T | LifecycleSignal
             ) -> Behavior[T]:
-                # print(get_args(msg))
+                # as all messages are handled there is no need to configure anything here
                 return await func(msg)
 
             return receive_handler
@@ -202,7 +194,7 @@ class Behaviors:
             async def receive_handler(
                 ctx: "Context[T]", msg: T | LifecycleSignal
             ) -> Behavior[T]:
-                # print(get_args(msg))
+                # only T messages are handled here, so match on that
                 match msg:
                     case LifecycleSignal():
                         return Behaviors.Same

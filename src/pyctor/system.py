@@ -23,6 +23,7 @@ class ActorSystem(Generic[T]):
         """
         Stops the actor system by sending a stop message to the root behavior
         """
+        # Should send a stopped message instead to the actors
         self._nursery.cancel_scope.cancel()
 
 @asynccontextmanager
