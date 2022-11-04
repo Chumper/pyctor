@@ -28,7 +28,7 @@ async def main() -> None:
         # asystem.root().send(True)
  
         # stop the system, otherwise actors will stay alive forever
-        asystem.stop()
+        await asystem.stop()
     print("Actor System was shut down")
 
 if __name__ == "__main__":

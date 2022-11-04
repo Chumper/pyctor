@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Awaitable, Callable, Generic, List, Protocol, TypeAlias
 
 import trio
+from typing_extensions import reveal_type
 
 from pyctor.types import T
 
@@ -18,7 +19,15 @@ class LifecycleSignal(Enum):
     """
 
     Started = 1
+    """
+    Wil be sent once a behavior is started
+    """
+
     Stopped = 2
+    """
+    Will be sent once a behavior is stopped and after all it's children are stopped.
+    After the message is handled a behavior is terminated
+    """
 
 
 class Behavior(ABC, Generic[T]):
@@ -26,7 +35,6 @@ class Behavior(ABC, Generic[T]):
     The basic building block of everything in Pyctor.
     A Behavior defines how an actor will handle a message and will return a Behavior for the next message.
     """
-
     ...
 
 
@@ -34,9 +42,12 @@ BehaviorHandler: TypeAlias = Callable[
     ["Context[T]", T | LifecycleSignal], Awaitable[Behavior[T]]
 ]
 
-
 @dataclass
 class BehaviorSignal(Behavior[T]):
+    """
+    A class to house all BehaviorSignal that can be returned by a Behavior
+    The index is used to differentiate the different signals
+    """
     __index: int
 
 
@@ -105,15 +116,19 @@ class BehaviorProcessor(Generic[T]):
     _receive: trio.abc.ReceiveChannel[T | LifecycleSignal]
     _behavior: BehaviorImpl[T]
     _ref: "Ref[T]"
+    _ctx: 'Context[T]'
+    _stopped: bool = False
 
     def __init__(
         self,
         behavior: BehaviorImpl[T],
+        name: str | None = None
     ) -> None:
         super().__init__()
         self._send, self._receive = trio.open_memory_channel(0)
         self._behavior = behavior
-        self._ref = Ref(self)
+        self._ref = Ref[T](self)
+
 
     async def handle(self, msg: T | LifecycleSignal) -> None:
         # put into channel
@@ -121,25 +136,39 @@ class BehaviorProcessor(Generic[T]):
         await self._send.send(msg)
 
     async def behavior_task(self):
-        # call setup method
-        await self._behavior.setup(None)  # type: ignore
-        await self._behavior.handle(None, LifecycleSignal.Started)  # type: ignore
-        try:
-            while True:
-                msg = await self._receive.receive()
-                # print("Got from channel")
-                new_behavior = await self._behavior.handle(None, msg)  # type: ignore
-                match new_behavior:
-                    case Behaviors.Same:
-                        pass
-                    case BehaviorImpl():
-                        self._behavior = new_behavior
-                        await self._behavior.setup(None) # type: ignore
-                    case _:
-                        raise Exception(f"Behavior cannot be handled: {new_behavior}")
-        finally:
-            await self._behavior.handle(None, LifecycleSignal.Stopped)  # type: ignore
+        """
+        The main entry point for each behavior and therefore each actor.
+        This method is a single task in the trio concept.
+        Everything below this Behavior happens in this task.
+        """
+        async with trio.open_nursery() as n:
+            ctx = Context(nursery=n)
 
+            # call setup method
+            await self._behavior.setup(ctx)
+            # print(reveal_type(self._behavior))
+            await self._behavior.handle(ctx, LifecycleSignal.Started)
+            try:
+                while not self._stopped:
+                    msg = await self._receive.receive()
+                    match msg:
+                        case LifecycleSignal.Stopped: 
+                            self._stopped = True
+                            for c in ctx._children:
+                                await c.send(LifecycleSignal.Stopped)
+
+                    # print("Got from channel")
+                    new_behavior = await self._behavior.handle(ctx, msg)
+                    match new_behavior:
+                        case Behaviors.Same:
+                            pass
+                        case BehaviorImpl():
+                            self._behavior = new_behavior
+                            await self._behavior.setup(ctx)
+                        case _:
+                            raise Exception(f"Behavior cannot be handled: {new_behavior}")
+            finally:
+                pass
 
 # class InterceptorProtocol(Generic[T]):
 #     pass
@@ -157,12 +186,14 @@ class Behaviors:
 
     Stop: BehaviorSignal = BehaviorSignal(2)
     """
-    Indicates that the Behavior wants to be stopped. A Behavior will get a final 'Stopped' LifecycleSignal and will then be terminated.
+    Indicates that the Behavior wants to be stopped. 
+    A Behavior will get a final 'Stopped' LifecycleSignal and will then be terminated.
     """
 
     Restart: BehaviorSignal = BehaviorSignal(3)
     """
-    Indicates that a Behavior wants to be restarted. That means that the Behavior receives a 'Stopped' and then 'Started' LifecycleSignal.
+    Indicates that a Behavior wants to be restarted. 
+    That means that the Behavior receives a 'Stopped' and then 'Started' LifecycleSignal.
     Also means that the setup (if available) of the Behavior will be executed again.
     """
 
@@ -172,8 +203,8 @@ class Behaviors:
         The setup is run when an actor is created.
         It can be used to prepare resources that are needed before the first message arrives.
         """
-        # return BehaviorHandlerImpl()
-        return Behaviors.Same
+        return BehaviorImpl(func=factory) # type: ignore
+        
 
     @staticmethod
     def receive(
@@ -189,6 +220,7 @@ class Behaviors:
                 ctx: "Context[T]", msg: T | LifecycleSignal
             ) -> Behavior[T]:
                 # as all messages are handled there is no need to configure anything here
+                reveal_type(msg)
                 return await func(msg)
 
             return receive_handler
@@ -206,6 +238,7 @@ class Behaviors:
                 ctx: "Context[T]", msg: T | LifecycleSignal
             ) -> Behavior[T]:
                 # only T messages are handled here, so match on that
+                reveal_type(msg)
                 match msg:
                     case LifecycleSignal():
                         return Behaviors.Same
@@ -228,6 +261,7 @@ class Behaviors:
             async def receive_handler(
                 ctx: "Context[T]", msg: T | LifecycleSignal
             ) -> Behavior[T]:
+                reveal_type(msg)
                 match msg:
                     case LifecycleSignal():
                         return await func(msg)
@@ -261,13 +295,34 @@ class Behaviors:
 
 
 class SpawnMixin(Generic[T]):
-    _children: List["Ref[LifecycleSignal]"]
+    _children: List["Ref[LifecycleSignal]"] = []
+    _nursery: trio.Nursery
+    
+    def __init__(self, nursery: trio.Nursery) -> None:
+        super().__init__()
+        self._nursery = nursery
 
-    async def spawn(self, behavior: Behavior[T]) -> "Ref[T]":  # type: ignore
-        pass
+    async def spawn(self, behavior: Behavior[T]) -> "Ref[T]":
+        # narrow class down to a BehaviorProtocol
+        assert isinstance(behavior, BehaviorImpl), "behavior needs to implement the BehaviorProtocol"
+        # create the process
+        b = BehaviorProcessor(behavior=behavior)
+        # start in the nursery
+        self._nursery.start_soon(b.behavior_task)
+        # append to array
+        self._children.append(b._ref)
+        # return the ref
+        return b._ref
 
+class Context(SpawnMixin[T], Generic[T]):
+    """
+    A Context is given to each Behavior. A Context can be used to spawn new Behaviors or to get the own address.
+    A Context will wrap a spawn action into a nursery so that child behaviors get destroyed once a behavior is stopped.
+    """
 
-class Context(SpawnMixin, Generic[T]):
+    def __init__(self, nursery: trio.Nursery) -> None:
+        super().__init__(nursery)
+
     def self(self) -> "Ref[T]":  # type: ignore
         pass
 
@@ -286,3 +341,7 @@ class Ref(Generic[T]):
 class Actor(Generic[T], ABC):
     def create(self) -> Behavior[T]:
         ...
+
+
+class ReplyProtocol(Protocol[T]):
+    reply_to: 'Ref[T]'

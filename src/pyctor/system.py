@@ -3,7 +3,7 @@ from typing import AsyncGenerator, Generic
 
 import trio
 
-from pyctor.behavior import Behavior, BehaviorImpl, BehaviorProcessor, Ref
+from pyctor.behavior import Behavior, BehaviorImpl, BehaviorProcessor, LifecycleSignal, Ref
 from pyctor.types import T
 
 
@@ -19,15 +19,14 @@ class ActorSystem(Generic[T]):
     def root(self) -> Ref[T]:
         return self._root_behavior._ref
 
-    def stop(self) -> None:
+    async def stop(self) -> None:
         """
         Stops the actor system by sending a stop message to the root behavior
         """
-        # Should send a stopped message instead to the actors
-        self._nursery.cancel_scope.cancel()
+        await self._root_behavior.handle(LifecycleSignal.Stopped)
 
 @asynccontextmanager
-async def actor_system(root_behavior: Behavior[T]) -> AsyncGenerator[ActorSystem[T], None]:
+async def actor_system(root_behavior: Behavior[T], name: str = None) -> AsyncGenerator[ActorSystem[T], None]:
     # narrow class down to a BehaviorProtocol
     assert isinstance(root_behavior, BehaviorImpl), "root behavior needs to implement the BehaviorProtocol"
 
@@ -35,7 +34,7 @@ async def actor_system(root_behavior: Behavior[T]) -> AsyncGenerator[ActorSystem
     try:
         async with trio.open_nursery() as n:
             # create a BehaviorImpl
-            b = BehaviorProcessor(behavior=root_behavior)
+            b = BehaviorProcessor(behavior=root_behavior, name=name)
             actor_system = ActorSystem(b, n)
             # start the root task
             n.start_soon(b.behavior_task)

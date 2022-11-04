@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import trio
+
 import pyctor
 from pyctor.behavior import Actor, Behavior, Behaviors, Ref
 from pyctor.messages import Message
@@ -45,7 +46,7 @@ async def main() -> None:
         await asystem.root().send(Increment())
 
         # stop the system, otherwise actors will stay alive forever
-        asystem.stop()
+        await asystem.stop()
     print("Actor System was shut down")
 
 

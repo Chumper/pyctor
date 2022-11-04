@@ -1,6 +1,7 @@
 
-import pyctor
 import trio
+
+import pyctor
 from pyctor.behavior import Behavior, Behaviors, Context
 
 """
@@ -13,19 +14,21 @@ async def child_handle(msg: str) -> Behavior[str]:
     return Behaviors.Same
 
 
-async def root_handle(msg: str) -> Behavior[str]:
-    print(f"root actor received: {msg}")
-    return Behaviors.Same
-
 async def root_setup(ctx: Context[str]) -> Behavior[str]:
     print("Hi from root actor setup")
     
     # spawn child actors
-    child_behavior = Behaviors.receive(child_handle)
-    child_ref = ctx.spawn(child_behavior)
+    child_behavior = Behaviors.receive_message(child_handle)
+    child_ref = await ctx.spawn(child_behavior)
+
+    async def root_handle(msg: str) -> Behavior[str]:
+        print(f"root actor received: {msg}")
+        # also send to child_ref
+        await child_ref.send(msg)
+        return Behaviors.Same
 
     # return root behavior
-    return Behaviors.receive(root_handle)
+    return Behaviors.receive_message(root_handle)
 
 async def main() -> None:
     print("Actor System is starting up")
@@ -39,7 +42,7 @@ async def main() -> None:
         # asystem.root().send(True)
  
         # stop the system, otherwise actors will stay alive forever
-        asystem.stop()
+        await asystem.stop()
     print("Actor System was shut down")
 
 if __name__ == "__main__":

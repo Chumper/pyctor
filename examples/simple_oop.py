@@ -20,7 +20,7 @@ class RootActor(Actor[str]):
 async def main() -> None:
     print("Actor System is starting up")
     async with pyctor.actor_system(RootActor().create()) as asystem:
-        for i in range(100000):
+        for i in range(10):
             await asystem.root().send(f"Hi from the ActorSystem {i}")
 
         # not possible due to type safety, comment in to see mypy in action
@@ -28,7 +28,7 @@ async def main() -> None:
         # asystem.root().send(True)
 
         # stop the system, otherwise actors will stay alive forever
-        asystem.stop()
+        await asystem.stop()
     print("Actor System was shut down")
 
 
