@@ -1,7 +1,7 @@
 from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
-from typing import Awaitable, Callable, Generic, TypeAlias
+from typing import Awaitable, Callable, Generic, List, Protocol, TypeAlias
 
 import trio
 
@@ -128,10 +128,18 @@ class BehaviorProcessor(Generic[T]):
             while True:
                 msg = await self._receive.receive()
                 # print("Got from channel")
-                await self._behavior.handle(None, msg)  # type: ignore
+                new_behavior = await self._behavior.handle(None, msg)  # type: ignore
+                match new_behavior:
+                    case Behaviors.Same:
+                        pass
+                    case BehaviorImpl():
+                        self._behavior = new_behavior
+                        await self._behavior.setup(None) # type: ignore
+                    case _:
+                        raise Exception(f"Behavior cannot be handled: {new_behavior}")
         finally:
             await self._behavior.handle(None, LifecycleSignal.Stopped)  # type: ignore
-        
+
 
 # class InterceptorProtocol(Generic[T]):
 #     pass
@@ -168,7 +176,9 @@ class Behaviors:
         return Behaviors.Same
 
     @staticmethod
-    def receive(func: Callable[[T | LifecycleSignal], Awaitable[Behavior[T]]]) -> Behavior[T]:
+    def receive(
+        func: Callable[[T | LifecycleSignal], Awaitable[Behavior[T]]]
+    ) -> Behavior[T]:
         """
         Defines a Behavior that handles custom messages.
         """
@@ -190,6 +200,7 @@ class Behaviors:
         """
         Defines a Behavior that handles custom messages and returns the next Behavior.
         """
+
         async def receive_setup(ctx: "Context[T]") -> BehaviorHandler[T]:
             async def receive_handler(
                 ctx: "Context[T]", msg: T | LifecycleSignal
@@ -212,6 +223,7 @@ class Behaviors:
         """
         Defines a Behavior that handles a lifecycle signal and returns a behavior
         """
+
         async def receive_setup(ctx: "Context[T]") -> BehaviorHandler[T]:
             async def receive_handler(
                 ctx: "Context[T]", msg: T | LifecycleSignal
@@ -248,11 +260,15 @@ class Behaviors:
 #         pass
 
 
-class Context(Generic[T]):
-    def self(self) -> "Ref[T]":  # type: ignore
+class SpawnMixin(Generic[T]):
+    _children: List["Ref[LifecycleSignal]"]
+
+    async def spawn(self, behavior: Behavior[T]) -> "Ref[T]":  # type: ignore
         pass
 
-    def spawn(self, behavior: Behavior[T]) -> "Ref[T]":  # type: ignore
+
+class Context(SpawnMixin, Generic[T]):
+    def self(self) -> "Ref[T]":  # type: ignore
         pass
 
 
@@ -265,3 +281,8 @@ class Ref(Generic[T]):
 
     async def send(self, msg: T) -> None:
         await self._impl.handle(msg)
+
+
+class Actor(Generic[T], ABC):
+    def create(self) -> Behavior[T]:
+        ...
