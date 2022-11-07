@@ -1,7 +1,8 @@
 import trio
 
 import pyctor
-from pyctor.behavior import Actor, Behavior, Behaviors
+from pyctor.behavior import Behaviors
+from pyctor.types import Actor, Behavior
 
 """
 Simple object orientated example how to spawn an actor that will print messages it receives

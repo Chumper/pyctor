@@ -42,8 +42,22 @@ async def main() -> None:
     async with pyctor.actor_system(Counter().create()) as asystem:
         await asystem.root().send(Increment())
         await asystem.root().send(Increment())
-        # await asystem.root().send(GetValue(reply_to=))
+        
+        # we can use a trio cancel scope here if needed
+        # with trio.move_on_after(1):
+            # with asystem.ask
+            # use the ask pattern to get the value back
+            # value = await asystem.ask(asystem.root(), GetValue())
+            # print(f"Got intermittent value: {value}")
+        
         await asystem.root().send(Increment())
+
+        # we can use a trio cancel scope here if needed
+        # with trio.move_on_after(1):
+            # use the ask pattern to get the value back
+            # value = await asystem.ask(asystem.root(), GetValue())
+            # print(f"Got final value: {value}")
+
 
         # stop the system, otherwise actors will stay alive forever
         await asystem.stop()
