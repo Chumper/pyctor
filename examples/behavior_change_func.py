@@ -28,10 +28,10 @@ async def main() -> None:
 
     async with pyctor.actor_system(initial_behavior) as asystem:
         for i in (1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4):
-            await asystem.root().send(i)
+            asystem.root().send(i)
 
         # stop the system, otherwise actors will stay alive forever
-        await asystem.stop()
+        asystem.stop()
     print("Actor System was shut down")
 
 

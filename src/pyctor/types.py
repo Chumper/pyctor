@@ -1,6 +1,8 @@
 from abc import ABC
 from enum import Enum
-from typing import Awaitable, Callable, Generic, Protocol, TypeAlias, TypeVar, runtime_checkable
+from typing import Awaitable, Callable, Generic, List, Protocol, TypeAlias, TypeVar, runtime_checkable
+
+import trio
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -37,6 +39,7 @@ class LifecycleSignal(Enum):
     """
     A LifecycleSignal is send to a Behavior to indicate the phases a Behavior can go through.
     When a Behavior is started, the first LifecycleSignal it will get will be 'Started'.
+    When a Behavior is requested to stop, the LifecycleSignal will be 'Stopping'.
     When a Behavior is stopped, the last LifecycleSignal will be 'Stopped'.
 
     A LifecycleSignal can be used to do certain actions that are required during the lifecycle.
@@ -47,7 +50,13 @@ class LifecycleSignal(Enum):
     Wil be sent once a behavior is started
     """
 
-    Stopped = 2
+    Stopping = 2
+    """
+    Will be sent once a behavior is asked to stop itself.
+    After the message is handled all child behavior will receive a Stopping message as well.
+    """
+
+    Stopped = 3
     """
     Will be sent once a behavior is stopped and after all it's children are stopped.
     After the message is handled a behavior is terminated
@@ -59,6 +68,12 @@ class Spawner(Generic[T]):
     A Spawner handles the spawning of new Behaviors.
     Mostly integrated into a Context.
     """
+
+    _children: List['BehaviorProcessor'] = []
+    """
+    Contains the children of the context
+    """
+    
     async def spawn(self, behavior: Behavior[T]) -> "Ref[T]":
         """
         Will spawn the given Behavior in the context of the integrated class.
@@ -79,6 +94,13 @@ class Context(Spawner[T], Generic[T]):
         """
         ...
 
+    def nursery(self) -> trio.Nursery:
+        """
+        Returns the nursery that has been started in the context of this behavior.
+        It can be used to work with trio concepts.
+        """
+        ...
+
 
 BehaviorFunction: TypeAlias = Callable[
     ["Context[T]", T | LifecycleSignal], Awaitable[Behavior[T]]
@@ -89,7 +111,10 @@ Type alias to define a function that can handle a generic message in the actor s
 
 class BehaviorProcessor(Generic[T], ABC):
 
-    async def handle(self, msg: T | LifecycleSignal) -> None:
+    def handle(self, msg: T) -> None:
+        ...
+
+    def stop(self) -> None:
         ...
 
     async def behavior_task(self):
@@ -129,13 +154,20 @@ class Ref(Generic[T], ABC):
     """
     A Ref always points to an instance of a Behavior.
     The ref is used to send messages to the Behavior.
-
     """
 
-    async def send(self, msg: T) -> None:
+    def send(self, msg: T) -> None:
         """
-        Sends a typed message to the actor and waits until the message has been delivered.
+        Sends a typed message to the behavior and waits until the message has been delivered.
         If it does not matter if the message reaches the sender, then do not await this method.
+        """
+        ...
+    
+    def stop(self) -> None:
+        """
+        EXPERIMENTAL: Not sure yet if this should stay.
+
+        Will send a system message to the behavior to stop the behavior and all of its children.
         """
         ...
 
@@ -148,21 +180,9 @@ class Ref(Generic[T], ABC):
         Supports trio standard cancelation scope and should be used to place a timeout on the request.
         """
         ...
-
-class MessageInterceptor(Protocol[T]):
-    """
-    A MessageInterceptor can be used to intercept messages on a Behavior.
-    It gets the message and is expected to call the next interceptor.
-    With this approach it can intercept before and after message handling.  
-    """
-    async def intercept(self, ctx: Context[T], msg: T | LifecycleSignal) -> Behavior[T]:
+    
+    def address(self) -> str:
+        """
+        Will return the address of this Behavior
+        """
         ...
-
-# class BehaviorInterceptor(Generic[T]):
-#     """
-#     A BehaviorInterceptor can be used to intercept the lifecycle of a Behavior.
-#     It gets the message and is expected to yield the next interceptor.
-#     With this approach it can intercept before and after a Behavior's life.  
-#     """
-#     async def intercept(self, ctx: Context[T], msg: T | LifecycleSignal) -> Behavior[T]:
-#         ...

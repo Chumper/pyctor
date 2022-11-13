@@ -2,20 +2,11 @@ from enum import Enum
 from typing import Awaitable, Callable
 
 import trio
+
 from pyctor.context import ContextImpl
 from pyctor.ref import LocalRef
 from pyctor.signals import BehaviorSignal
-
-from pyctor.types import (
-    T,
-    Behavior,
-    BehaviorFunction,
-    BehaviorHandler,
-    BehaviorProcessor,
-    Context,
-    LifecycleSignal,
-    Ref,
-)
+from pyctor.types import Behavior, BehaviorFunction, BehaviorHandler, BehaviorProcessor, Context, LifecycleSignal, Ref, T
 
 
 class BehaviorHandlerImpl(BehaviorHandler[T], Behavior[T]):
@@ -99,6 +90,22 @@ class SuperviseStrategy(Enum):
     Stop = 2
     Ignore = 3
 
+class LoggingBehaviorHandlerImpl(BehaviorHandler[T], Behavior[T]):
+    """
+    Logs every message that goes through the behavior
+    """
+    _behavior: BehaviorHandler[T]
+
+    def __init__(self, behavior: Behavior[T]) -> None:
+        self._behavior = behavior # type: ignore
+
+    async def handle(self, ctx: "Context[T]", msg: T | "LifecycleSignal") -> "Behavior[T]":
+        print(f"Start handling: {msg}")
+        b = await self._behavior.handle(ctx=ctx, msg=msg)
+        print(f"End handling: {msg}")
+        return b
+
+
 class SuperviseBehaviorHandlerImpl(BehaviorHandler[T], Behavior[T]):
     """
     Will wrap a BehaviorHandler in a supervise strategy
@@ -129,68 +136,92 @@ class SuperviseBehaviorHandlerImpl(BehaviorHandler[T], Behavior[T]):
                     return Behaviors.Same 
 
 class BehaviorProcessorImpl(BehaviorProcessor[T]):
-    _send: trio.abc.SendChannel[T | LifecycleSignal]
-    _receive: trio.abc.ReceiveChannel[T | LifecycleSignal]
+    _parent_nursery: trio.Nursery
+    _own_nursery: trio.Nursery
+    
+    _send: trio.abc.SendChannel[T]
+    _receive: trio.abc.ReceiveChannel[T]
+    
     _behavior: BehaviorHandler[T]
-    _ref: Ref[T]
     _ctx: Context[T]
-    _stopped: bool = False
 
-    def __init__(self, behavior: BehaviorHandler[T], name: str | None = None) -> None:
+    @staticmethod
+    async def create(nursery: trio.Nursery, behavior: BehaviorHandler[T], name: str | None = None) -> Ref[T]:
+        """
+        Starts a new BehaviorProcessor in the given nursery, starts a new nursery for its own children.
+        Returns the Ref to this Processor
+        """
+        # prepare everything and start the 
+        b = BehaviorProcessorImpl(nursery=nursery, behavior=behavior, name=name)
+        await nursery.start(b.behavior_task)
+        return b.ref()
+
+    def __init__(self, nursery: trio.Nursery, behavior: BehaviorHandler[T], name: str | None = None) -> None:
         super().__init__()
+        self._parent_nursery = nursery
         self._send, self._receive = trio.open_memory_channel(0)
         self._behavior = behavior
         self._ref = LocalRef[T](self)
 
-        class InnerControl:
-            def stop(_) -> None:
-                self._stopped = True
-
-            def set(_, b: BehaviorHandler[T]) -> None:
-                self._behavior = b
-
-        self._control = InnerControl()
-
-    async def handle(self, msg: T | LifecycleSignal) -> None:
+    def ref(self) -> 'Ref[T]':
+        return self._ref
+    
+    def handle(self, msg: T | LifecycleSignal) -> None:
         # put into channel
-        # print("Put into channel")
-        await self._send.send(msg)
+        self._own_nursery.start_soon(self._send.send, msg)
 
-    async def behavior_task(self):
+    async def behavior_task(self, task_status=trio.TASK_STATUS_IGNORED) -> None:
         """
         The main entry point for each behavior and therefore each actor.
         This method is a single task in the trio concept.
         Everything below this Behavior happens in this task.
         """
         async with trio.open_nursery() as n:
-            ctx = ContextImpl(nursery=n)
+            self._own_nursery = n
+            self._ctx = ContextImpl(nursery=n, ref=self._ref)
+            task_status.started()
+            
+            await self._lifecycle()
 
-            # print(reveal_type(self._behavior))
-            await self._behavior.handle(ctx, LifecycleSignal.Started)
-            while not self._stopped:
-                msg = await self._receive.receive()
-                # self._behavior = await self._behavior.handle(ctx, msg)
+    
+    async def _lifecycle(self) -> None:
+        # send started signal
+        self.__handle_internal(LifecycleSignal.Started)
+        while True:
+            msg = await self._receive.receive()
+            if not self.__handle_internal(msg=msg):
+                break
+            
 
-                match msg:
-                    case LifecycleSignal.Stopped:
-                        self._stopped = True
-                        for c in ctx._children:
-                            await c.handle(LifecycleSignal.Stopped)
+    async def __handle_internal(self, msg: T | LifecycleSignal) -> bool:
+        new_behavior = await self._behavior.handle(self._ctx, msg)
+        match new_behavior:
+            case Behaviors.Ignored:
+                print(f"Message ignored: {msg}")
+            case Behaviors.Same:
+                pass
+            case Behaviors.Stop:
+                self.stop()
+            case BehaviorHandler():
+                self._behavior = new_behavior
+        match msg:
+            case LifecycleSignal.Stopped:
+                return False
+        return True
+            
+    
+    def stop(self) -> None:
+        """
+        Stops the behavior and handles the correct lifecycle events
+        """
+        # send stopping message
+        self.handle(LifecycleSignal.Stopping)
+        # terminate children
+        for c in self._ctx._children:
+            c.stop()
+        # send stopping message
+        self.handle(LifecycleSignal.Stopped)
 
-                # print("Got from channel")
-                new_behavior = await self._behavior.handle(ctx, msg)
-                match new_behavior:
-                    case Behaviors.Same:
-                        pass
-                    case BehaviorHandlerImpl():
-                        self._behavior = new_behavior
-                    case _:
-                        raise Exception(
-                            f"Behavior cannot be handled: {new_behavior}"
-                        )
-
-    def ref(self) -> Ref[T]:
-        return self._ref
 
 
 class Behaviors:
@@ -211,6 +242,7 @@ class Behaviors:
     That means that the Behavior receives a 'Stopped' and then 'Started' LifecycleSignal.
     Also means that the setup (if available) of the Behavior will be executed again.
     """
+    
     Ignored: BehaviorSignal = BehaviorSignal(4)
     """
     Indicates that the message was not handled and ignored. 

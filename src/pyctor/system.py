@@ -4,36 +4,28 @@ from typing import AsyncGenerator, Generic
 import trio
 
 from pyctor.behavior import BehaviorHandlerImpl, BehaviorProcessorImpl
-from pyctor.types import T, U, V, Behavior, BehaviorHandler, BehaviorProcessor, LifecycleSignal, Ref, ReplyProtocol
+from pyctor.types import Behavior, BehaviorHandler, BehaviorProcessor, LifecycleSignal, Ref, ReplyProtocol, T, U, V
 
 
 class ActorSystem(Generic[T]):
-    _root_behavior: BehaviorProcessor[T]
-    _nursery: trio.Nursery
+    _root_behavior: Ref[T]
 
-    def __init__(self, root_behavior: BehaviorProcessor[T], nursery: trio.Nursery) -> None:
+    def __init__(self, root_behavior: Ref[T]) -> None:
         super().__init__()
         self._root_behavior = root_behavior
-        self._nursery = nursery
 
     def root(self) -> Ref[T]:
         """
         Returns the address of the root Behavior
         """
-        return self._root_behavior.ref()
+        return self._root_behavior
 
-    async def stop(self) -> None:
+    def stop(self) -> None:
         """
         Stops the actor system by sending a stop message to the root behavior
         """
-        await self._root_behavior.handle(LifecycleSignal.Stopped)
-    
-    async def ask(self, ref: Ref[U], msg: ReplyProtocol[V]) -> V:  # type: ignore
-        # spawn actor that accepts T 
-        # send message
-        # wait for T, use cancelscope from Trio if needed
-        # return T
-        pass
+        self._root_behavior.stop()
+
 
 @asynccontextmanager
 async def actor_system(root_behavior: Behavior[T], name: str | None = None) -> AsyncGenerator[ActorSystem[T], None]:
@@ -44,10 +36,8 @@ async def actor_system(root_behavior: Behavior[T], name: str | None = None) -> A
     try:
         async with trio.open_nursery() as n:
             # create a BehaviorImpl
-            b = BehaviorProcessorImpl(behavior=root_behavior, name=name)
-            actor_system = ActorSystem(b, n)
-            # start the root task
-            n.start_soon(b.behavior_task)
+            ref = await BehaviorProcessorImpl.create(nursery=n, behavior=root_behavior, name=name)
+            actor_system = ActorSystem(ref)
             yield actor_system
     finally:
         pass

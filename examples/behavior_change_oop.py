@@ -14,12 +14,16 @@ class BehaviorActor(Actor[int]):
         if msg % 2 == 1:
             print(f"Odd number received: {msg}")
             return Behaviors.receive_message(self.even_handler)
+        else: 
+            print(f"Ignore even number: {msg}")
         return Behaviors.Same
 
     async def even_handler(self, msg: int) -> Behavior[int]:
         if msg % 2 == 0:
             print(f"Even number received: {msg}")
             return Behaviors.receive_message(self.odd_handler)
+        else: 
+            print(f"Ignore odd number: {msg}")
         return Behaviors.Same
 
     def create(self) -> Behavior[int]:
@@ -33,10 +37,10 @@ async def main() -> None:
 
     async with pyctor.actor_system(BehaviorActor().create()) as asystem:
         for i in (1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4):
-            await asystem.root().send(i)
+            asystem.root().send(i)
 
         # stop the system, otherwise actors will stay alive forever
-        await asystem.stop()
+        asystem.stop()
     print("Actor System was shut down")
 
 
