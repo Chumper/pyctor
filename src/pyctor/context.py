@@ -1,6 +1,4 @@
-
-
-from typing import List
+from typing import AsyncGenerator, List
 from uuid import uuid4
 
 import trio
@@ -17,11 +15,9 @@ class SpawnMixin(Spawner):
         super().__init__()
         self._nursery = nursery
 
-    async def spawn(self, behavior: Behavior[T], name: str = str(uuid4())) -> Ref[T]:
+    async def spawn(self, behavior: AsyncGenerator[Behavior[str], None], name: str = str(uuid4())) -> Ref[T]:
         # narrow class down to a BehaviorProtocol
-        assert isinstance(
-            behavior, BehaviorHandler
-        ), "behavior needs to implement the BehaviorProtocol"
+        assert isinstance(behavior, BehaviorHandler), "behavior needs to implement the BehaviorProtocol"
         # create the process
         b = pyctor.behavior.BehaviorProcessorImpl(nursery=self._nursery, behavior=behavior, name=name)
         # start in the nursery
@@ -30,6 +26,7 @@ class SpawnMixin(Spawner):
         self._children.append(b)
         # return the ref
         return b._ref
+
 
 class ContextImpl(SpawnMixin, Context[T]):
     _nursery: trio.Nursery

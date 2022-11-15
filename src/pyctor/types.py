@@ -1,16 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import (
-    Awaitable,
-    Callable,
-    Generic,
-    List,
-    Protocol,
-    TypeAlias,
-    TypeVar,
-    overload,
-    runtime_checkable,
-)
+from typing import AsyncGenerator, Awaitable, Callable, Generic, List, Protocol, TypeAlias, TypeVar, overload, runtime_checkable
 from uuid import UUID, uuid4
 
 import trio
@@ -36,9 +26,7 @@ class BehaviorHandler(Protocol[T]):
     This class fullfills the Protocol requirements needed to handle the internals.
     """
 
-    async def handle(
-        self, ctx: "Context[T]", msg: T | "LifecycleSignal"
-    ) -> "Behavior[T]":
+    async def handle(self, ctx: "Context[T]", msg: T) -> "Behavior[T]":
         """
         Whenever a new message is received by the Behavior the handle method is called.
         The returned Behavior is used to either setup the new Behavior for the next message
@@ -47,35 +35,7 @@ class BehaviorHandler(Protocol[T]):
         ...
 
 
-class LifecycleSignal(Enum):
-    """
-    A LifecycleSignal is send to a Behavior to indicate the phases a Behavior can go through.
-    When a Behavior is started, the first LifecycleSignal it will get will be 'Started'.
-    When a Behavior is requested to stop, the LifecycleSignal will be 'Stopping'.
-    When a Behavior is stopped, the last LifecycleSignal will be 'Stopped'.
-
-    A LifecycleSignal can be used to do certain actions that are required during the lifecycle.
-    """
-
-    Started = 1
-    """
-    Wil be sent once a behavior is started
-    """
-
-    Stopping = 2
-    """
-    Will be sent once a behavior is asked to stop itself.
-    After the message is handled all child behavior will receive a Stopping message as well.
-    """
-
-    Stopped = 3
-    """
-    Will be sent once a behavior is stopped and after all it's children are stopped.
-    After the message is handled a behavior is terminated
-    """
-
-
-class Spawner():
+class Spawner:
     """
     A Spawner handles the spawning of new Behaviors.
     Mostly integrated into a Context.
@@ -86,7 +46,7 @@ class Spawner():
     Contains the children of the context
     """
 
-    async def spawn(self, behavior: Behavior[T], name: str = str(uuid4())) -> "Ref[T]":
+    async def spawn(self, behavior: AsyncGenerator[Behavior[str], None], name: str = str(uuid4())) -> "Ref[T]":
         """
         Will spawn the given Behavior in the context of the integrated class.
         In most cases will spawn a child actor in the context of another actor.
@@ -114,9 +74,7 @@ class Context(Spawner, Generic[T]):
         ...
 
 
-BehaviorFunction: TypeAlias = Callable[
-    ["Context[T]", T | LifecycleSignal], Awaitable[Behavior[T]]
-]
+BehaviorFunction: TypeAlias = Callable[["Context[T]", T], Awaitable[Behavior[T]]]
 """
 Type alias to define a function that can handle a generic message in the actor system and returns a Behavior 
 """
@@ -189,7 +147,7 @@ class Ref(Generic[T], ABC):
         Will send a system message to the behavior to stop the behavior and all of its children.
         """
         ...
-    
+
     def stop_nowait(self) -> None:
         """
         EXPERIMENTAL: Not sure yet if this should stay.
@@ -214,25 +172,7 @@ class Ref(Generic[T], ABC):
         """
         ...
 
+
 class Dispatcher(ABC):
     async def dispatch(self, handler: BehaviorHandler[T]) -> Ref[T]:
-        ...
-
-class Mailbox(ABC, Generic[T]):
-
-    @overload
-    @abstractmethod
-    async def add(self, msg: T) -> None:
-        ...
-
-    @overload
-    @abstractmethod
-    async def add(self, msg: LifecycleSignal) -> None:
-        ...
-
-    @abstractmethod
-    async def add(self, msg: T | LifecycleSignal) -> None:
-        ...
-
-    async def get(self) -> T | LifecycleSignal:
         ...

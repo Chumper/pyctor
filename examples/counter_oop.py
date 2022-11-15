@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import trio
 
 import pyctor
-from pyctor.behavior import Actor, Behavior, Behaviors, Address
+from pyctor.behavior import Actor, Address, Behavior, Behaviors
 from pyctor.messages import Message
 
 
@@ -42,22 +42,21 @@ async def main() -> None:
     async with pyctor.root_behavior(Counter().create()) as asystem:
         await asystem.root().send(Increment())
         await asystem.root().send(Increment())
-        
+
         # we can use a trio cancel scope here if needed
         # with trio.move_on_after(1):
-            # with asystem.ask
-            # use the ask pattern to get the value back
-            # value = await asystem.ask(asystem.root(), GetValue())
-            # print(f"Got intermittent value: {value}")
-        
+        # with asystem.ask
+        # use the ask pattern to get the value back
+        # value = await asystem.ask(asystem.root(), GetValue())
+        # print(f"Got intermittent value: {value}")
+
         await asystem.root().send(Increment())
 
         # we can use a trio cancel scope here if needed
         # with trio.move_on_after(1):
-            # use the ask pattern to get the value back
-            # value = await asystem.ask(asystem.root(), GetValue())
-            # print(f"Got final value: {value}")
-
+        # use the ask pattern to get the value back
+        # value = await asystem.ask(asystem.root(), GetValue())
+        # print(f"Got final value: {value}")
 
         # stop the system, otherwise actors will stay alive forever
         await asystem.stop()

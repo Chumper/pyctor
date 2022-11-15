@@ -27,7 +27,7 @@ async def main() -> None:
     print("Actor System is starting up")
     root_behavior = Behaviors.receive_message(root_handler)
     supervise_behavior = Behaviors.supervise(exception_handler, root_behavior)
-    
+
     async with pyctor.root_behavior(supervise_behavior) as asystem:
         await asystem.root().send(f"Hi from the ActorSystem")
         await asystem.root().send(f"crash")

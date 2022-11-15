@@ -1,10 +1,11 @@
 import os
+from multiprocessing import cpu_count
+
 import trio
 
 import pyctor
 from pyctor.behavior import Behavior, Behaviors
 from pyctor.types import Context
-from multiprocessing import cpu_count
 
 """
 Simple functional example how to spawn actors on multiple cores

@@ -14,7 +14,7 @@ class BehaviorActor(Actor[int]):
         if msg % 2 == 1:
             print(f"Odd number received: {msg}")
             return Behaviors.receive_message(self.even_handler)
-        else: 
+        else:
             print(f"Ignore even number: {msg}")
         return Behaviors.Same
 
@@ -22,7 +22,7 @@ class BehaviorActor(Actor[int]):
         if msg % 2 == 0:
             print(f"Even number received: {msg}")
             return Behaviors.receive_message(self.odd_handler)
-        else: 
+        else:
             print(f"Ignore odd number: {msg}")
         return Behaviors.Same
 

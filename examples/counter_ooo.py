@@ -40,7 +40,7 @@
 #             .on_message(Increment, lambda _: Counter.on_increment(ctx, n)) \
 #             .on_message(GetValue, lambda command: Counter.on_get_value(n, command)) \
 #             .build()
-    
+
 #     @staticmethod
 #     def create() -> Behavior[Command]:
 #         return Behaviors.setup(lambda ctx: Counter.counter(ctx, 0))
