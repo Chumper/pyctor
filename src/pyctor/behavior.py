@@ -1,5 +1,6 @@
 from enum import Enum
-from typing import Awaitable, Callable
+from typing import Any, Awaitable, Callable
+from uuid import uuid4
 
 import trio
 
@@ -145,8 +146,10 @@ class BehaviorProcessorImpl(BehaviorProcessor[T]):
     _behavior: BehaviorHandler[T]
     _ctx: Context[T]
 
+    _stopped: bool = False
+
     @staticmethod
-    async def create(nursery: trio.Nursery, behavior: BehaviorHandler[T], name: str | None = None) -> Ref[T]:
+    async def create(nursery: trio.Nursery, behavior: BehaviorHandler[T], name: str = str(uuid4())) -> Ref[T]:
         """
         Starts a new BehaviorProcessor in the given nursery, starts a new nursery for its own children.
         Returns the Ref to this Processor
@@ -156,12 +159,14 @@ class BehaviorProcessorImpl(BehaviorProcessor[T]):
         await nursery.start(b.behavior_task)
         return b.ref()
 
-    def __init__(self, nursery: trio.Nursery, behavior: BehaviorHandler[T], name: str | None = None) -> None:
+    def __init__(self, nursery: trio.Nursery, behavior: BehaviorHandler[T], name: str) -> None:
         super().__init__()
         self._parent_nursery = nursery
         self._send, self._receive = trio.open_memory_channel(0)
         self._behavior = behavior
         self._ref = LocalRef[T](self)
+        self._name = name
+        s
 
     def ref(self) -> 'Ref[T]':
         return self._ref
@@ -186,10 +191,10 @@ class BehaviorProcessorImpl(BehaviorProcessor[T]):
     
     async def _lifecycle(self) -> None:
         # send started signal
-        self.__handle_internal(LifecycleSignal.Started)
+        await self.__handle_internal(LifecycleSignal.Started)
         while True:
             msg = await self._receive.receive()
-            if not self.__handle_internal(msg=msg):
+            if not await self.__handle_internal(msg=msg):
                 break
             
 

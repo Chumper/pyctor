@@ -1,6 +1,17 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Awaitable, Callable, Generic, List, Protocol, TypeAlias, TypeVar, runtime_checkable
+from typing import (
+    Awaitable,
+    Callable,
+    Generic,
+    List,
+    Protocol,
+    TypeAlias,
+    TypeVar,
+    overload,
+    runtime_checkable,
+)
+from uuid import UUID, uuid4
 
 import trio
 
@@ -24,6 +35,7 @@ class BehaviorHandler(Protocol[T]):
     Class that all Behaviors need to implement if they want to be handled by the actor system.
     This class fullfills the Protocol requirements needed to handle the internals.
     """
+
     async def handle(
         self, ctx: "Context[T]", msg: T | "LifecycleSignal"
     ) -> "Behavior[T]":
@@ -63,18 +75,18 @@ class LifecycleSignal(Enum):
     """
 
 
-class Spawner(Generic[T]):
+class Spawner():
     """
     A Spawner handles the spawning of new Behaviors.
     Mostly integrated into a Context.
     """
 
-    _children: List['BehaviorProcessor'] = []
+    _children: List["BehaviorProcessor"] = []
     """
     Contains the children of the context
     """
-    
-    async def spawn(self, behavior: Behavior[T]) -> "Ref[T]":
+
+    async def spawn(self, behavior: Behavior[T], name: str = str(uuid4())) -> "Ref[T]":
         """
         Will spawn the given Behavior in the context of the integrated class.
         In most cases will spawn a child actor in the context of another actor.
@@ -82,7 +94,7 @@ class Spawner(Generic[T]):
         ...
 
 
-class Context(Spawner[T], Generic[T]):
+class Context(Spawner, Generic[T]):
     """
     A Context is given to each Behavior. A Context can be used to spawn new Behaviors or to get the own address.
     A Context will wrap a spawn action into a nursery so that child behaviors get destroyed once a behavior is stopped.
@@ -109,7 +121,9 @@ BehaviorFunction: TypeAlias = Callable[
 Type alias to define a function that can handle a generic message in the actor system and returns a Behavior 
 """
 
+
 class BehaviorProcessor(Generic[T], ABC):
+    _name: str
 
     def handle(self, msg: T) -> None:
         ...
@@ -120,7 +134,7 @@ class BehaviorProcessor(Generic[T], ABC):
     async def behavior_task(self):
         ...
 
-    def ref(self) -> 'Ref[T]':
+    def ref(self) -> "Ref[T]":
         ...
 
 
@@ -156,14 +170,27 @@ class Ref(Generic[T], ABC):
     The ref is used to send messages to the Behavior.
     """
 
-    def send(self, msg: T) -> None:
+    async def send(self, msg: T) -> None:
         """
-        Sends a typed message to the behavior and waits until the message has been delivered.
-        If it does not matter if the message reaches the sender, then do not await this method.
+        TBD
+        """
+        ...
+
+    def send_nowait(self, msg: T) -> None:
+        """
+        TBD
+        """
+        ...
+
+    async def stop(self) -> None:
+        """
+        EXPERIMENTAL: Not sure yet if this should stay.
+
+        Will send a system message to the behavior to stop the behavior and all of its children.
         """
         ...
     
-    def stop(self) -> None:
+    def stop_nowait(self) -> None:
         """
         EXPERIMENTAL: Not sure yet if this should stay.
 
@@ -180,9 +207,32 @@ class Ref(Generic[T], ABC):
         Supports trio standard cancelation scope and should be used to place a timeout on the request.
         """
         ...
-    
+
     def address(self) -> str:
         """
         Will return the address of this Behavior
         """
+        ...
+
+class Dispatcher(ABC):
+    async def dispatch(self, handler: BehaviorHandler[T]) -> Ref[T]:
+        ...
+
+class Mailbox(ABC, Generic[T]):
+
+    @overload
+    @abstractmethod
+    async def add(self, msg: T) -> None:
+        ...
+
+    @overload
+    @abstractmethod
+    async def add(self, msg: LifecycleSignal) -> None:
+        ...
+
+    @abstractmethod
+    async def add(self, msg: T | LifecycleSignal) -> None:
+        ...
+
+    async def get(self) -> T | LifecycleSignal:
         ...

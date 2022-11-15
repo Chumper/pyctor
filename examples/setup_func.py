@@ -34,7 +34,7 @@ async def main() -> None:
     print("Actor System is starting up")
     behavior = Behaviors.setup(root_setup)
     
-    async with pyctor.actor_system(LoggingBehaviorHandlerImpl(behavior)) as asystem:
+    async with pyctor.root_behavior(LoggingBehaviorHandlerImpl(behavior)) as asystem:
         asystem.root().send(f"Hi from the ActorSystem")
  
         # not possible due to type safety, comment in to see mypy in action

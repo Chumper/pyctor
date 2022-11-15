@@ -1,4 +1,4 @@
 from pyctor.types import BehaviorHandler
 
 from .behavior import Ref
-from .system import actor_system
+from .system import root_behavior, open_nursery, multicore_dispatcher

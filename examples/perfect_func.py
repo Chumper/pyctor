@@ -4,10 +4,8 @@ import pyctor
 from pyctor.behavior import Behavior, Behaviors
 from pyctor.types import Context, LifecycleSignal
 
-"""
-Simple functional example how to spawn an actor that will print messages
-"""
-
+async def root_actor(ctx: Context[str]) -> Behavior[str]:
+    
 
 async def root_handler(ctx: Context[str], msg: str | LifecycleSignal) -> Behavior[str]:
     print(f"root actor received: {msg}")

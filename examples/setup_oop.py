@@ -3,7 +3,7 @@ import trio
 
 import pyctor
 from pyctor.behavior import Behavior, Behaviors, Context
-from pyctor.types import Actor, Ref
+from pyctor.types import Actor, Address
 
 """
 Simple oop example to show how to spawn an actor as part of the setup behavior.
@@ -20,7 +20,7 @@ class ChildActor(Actor[str]):
 
 
 class ParentActor(Actor[str]):
-    _child: Ref[str]
+    _child: Address[str]
 
     async def on_message(self, msg: str) -> Behavior[str]:
         print(f"root actor received: {msg}")
@@ -44,7 +44,7 @@ class ParentActor(Actor[str]):
 async def main() -> None:
     print("Actor System is starting up")
     
-    async with pyctor.actor_system(ParentActor().create()) as asystem:
+    async with pyctor.root_behavior(ParentActor().create()) as asystem:
         await asystem.root().send(f"Hi from the ActorSystem")
  
         # not possible due to type safety, comment in to see mypy in action

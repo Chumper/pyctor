@@ -26,7 +26,7 @@ async def main() -> None:
     print("Actor System is starting up")
     initial_behavior = Behaviors.receive_message(odd_handler)
 
-    async with pyctor.actor_system(initial_behavior) as asystem:
+    async with pyctor.root_behavior(initial_behavior) as asystem:
         for i in (1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4):
             asystem.root().send(i)
 

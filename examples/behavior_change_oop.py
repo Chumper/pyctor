@@ -35,7 +35,7 @@ class BehaviorActor(Actor[int]):
 async def main() -> None:
     print("Actor System is starting up")
 
-    async with pyctor.actor_system(BehaviorActor().create()) as asystem:
+    async with pyctor.root_behavior(BehaviorActor().create()) as asystem:
         for i in (1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4):
             asystem.root().send(i)
 

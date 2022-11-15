@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import trio
 
 import pyctor
-from pyctor.behavior import Actor, Behavior, Behaviors, Ref
+from pyctor.behavior import Actor, Behavior, Behaviors, Address
 from pyctor.messages import Message
 
 
@@ -17,7 +17,7 @@ class Increment(Command):
 
 @dataclass
 class GetValue(Command):
-    reply_to: Ref[int]
+    reply_to: Address[int]
 
 
 class Counter(Actor[Command]):
@@ -39,7 +39,7 @@ class Counter(Actor[Command]):
 async def main() -> None:
     print("Actor System is starting up")
 
-    async with pyctor.actor_system(Counter().create()) as asystem:
+    async with pyctor.root_behavior(Counter().create()) as asystem:
         await asystem.root().send(Increment())
         await asystem.root().send(Increment())
         
