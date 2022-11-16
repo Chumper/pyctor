@@ -1,4 +1,4 @@
-from typing import AsyncGenerator, List
+from typing import Any, AsyncGenerator, Callable, List
 from uuid import uuid4
 
 import trio
@@ -8,33 +8,39 @@ from pyctor.types import Behavior, BehaviorHandler, BehaviorProcessor, Context, 
 
 
 class SpawnMixin(Spawner):
-    _children: List[BehaviorProcessor] = []
-    _nursery: trio.Nursery
+    children: List[Ref] = []
+    nursery: trio.Nursery
 
     def __init__(self, nursery: trio.Nursery) -> None:
         super().__init__()
-        self._nursery = nursery
+        self.nursery = nursery
 
-    async def spawn(self, behavior: AsyncGenerator[Behavior[str], None], name: str = str(uuid4())) -> Ref[T]:
+    async def spawn(self, behavior: Callable[[],AsyncGenerator[Behavior[T], None]] | Behavior[T], name: str = str(uuid4())) -> Ref[T]:
+        match behavior:
+            case BehaviorHandler():
+                pass
+            case function():
+                pass
+            case _:
+                raise ValueError("behavior needs to implement the Behavior or the Generator Protocol")
+
         # narrow class down to a BehaviorProtocol
-        assert isinstance(behavior, BehaviorHandler), "behavior needs to implement the BehaviorProtocol"
+        assert isinstance(behavior, (Callable[[],AsyncGenerator], BehaviorHandler)), "behavior needs to implement the BehaviorProtocol"
         # create the process
-        b = pyctor.behavior.BehaviorProcessorImpl(nursery=self._nursery, behavior=behavior, name=name)
+        b = pyctor.behavior.BehaviorProcessorImpl(nursery=self.nursery, behavior=behavior, name=name)
         # start in the nursery
-        self._nursery.start_soon(b.behavior_task)
+        self.nursery.start_soon(b.behavior_task)
         # append to array
-        self._children.append(b)
+        self.children.append(b.ref())
         # return the ref
         return b._ref
 
 
 class ContextImpl(SpawnMixin, Context[T]):
-    _nursery: trio.Nursery
     _ref: Ref[T]
 
     def __init__(self, nursery: trio.Nursery, ref: Ref[T]) -> None:
         super().__init__(nursery)
-        self._nursery = nursery
         self._ref = ref
 
     def self(self) -> Ref[T]:
@@ -42,6 +48,3 @@ class ContextImpl(SpawnMixin, Context[T]):
         Returns the address of the Behavior belonging to this context.
         """
         return self._ref
-
-    def nursery(self) -> trio.Nursery:
-        return self._nursery

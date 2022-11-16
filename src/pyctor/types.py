@@ -46,7 +46,24 @@ class Spawner:
     Contains the children of the context
     """
 
-    async def spawn(self, behavior: AsyncGenerator[Behavior[str], None], name: str = str(uuid4())) -> "Ref[T]":
+    @overload
+    async def spawn(self, behavior: Callable[[],AsyncGenerator[Behavior[T], None]], name: str = str(uuid4())) -> "Ref[T]":
+        """
+        Will spawn the given Behavior in the context of the integrated class.
+        In most cases will spawn a child actor in the context of another actor.
+        """
+        ...
+
+    @overload
+    async def spawn(self, behavior: Behavior[T], name: str = str(uuid4())) -> "Ref[T]":
+        """
+        Will spawn the given Behavior in the context of the integrated class.
+        In most cases will spawn a child actor in the context of another actor.
+        """
+        ...
+    
+    @abstractmethod
+    async def spawn(self, behavior: Behavior[T] | Callable[[],AsyncGenerator[Behavior[T], None]], name: str = str(uuid4())) -> "Ref[T]":
         """
         Will spawn the given Behavior in the context of the integrated class.
         In most cases will spawn a child actor in the context of another actor.
@@ -55,6 +72,8 @@ class Spawner:
 
 
 class Context(Spawner, Generic[T]):
+    nursery: trio.Nursery
+    
     """
     A Context is given to each Behavior. A Context can be used to spawn new Behaviors or to get the own address.
     A Context will wrap a spawn action into a nursery so that child behaviors get destroyed once a behavior is stopped.
@@ -63,13 +82,6 @@ class Context(Spawner, Generic[T]):
     def self(self) -> "Ref[T]":
         """
         Returns the address of the Behavior belonging to this context.
-        """
-        ...
-
-    def nursery(self) -> trio.Nursery:
-        """
-        Returns the nursery that has been started in the context of this behavior.
-        It can be used to work with trio concepts.
         """
         ...
 

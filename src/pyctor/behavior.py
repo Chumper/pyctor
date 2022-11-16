@@ -195,7 +195,7 @@ class Behaviors:
         return DeferredBehaviorHandlerImpl(func=factory)
 
     @staticmethod
-    def receive(func: Callable[[Context[T], T | LifecycleSignal], Awaitable[Behavior[T]]]) -> Behavior[T]:
+    def receive(func: Callable[[T], Awaitable[Behavior[T]]]) -> Behavior[T]:
         """
         Defines a Behavior that handles custom messages as well as lifecycle signals.
         """
