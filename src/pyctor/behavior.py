@@ -1,15 +1,13 @@
 from contextlib import _AsyncGeneratorContextManager
 from enum import Enum
 from logging import getLogger
-from typing import Any, Awaitable, Callable
-from uuid import uuid4
+from typing import Awaitable, Callable
 
 import trio
 
-from pyctor.context import ContextImpl
 from pyctor.ref import LocalRef
 from pyctor.signals import BehaviorSignal
-from pyctor.types import Behavior, BehaviorFunction, BehaviorHandler, BehaviorProcessor, Context, Ref, T
+from pyctor.types import ActorNursery, Behavior, BehaviorFunction, BehaviorHandler, BehaviorProcessor, Context, Ref, T
 
 logger = getLogger(__name__)
 
@@ -78,20 +76,17 @@ class SuperviseBehaviorHandlerImpl(BehaviorHandler[T], Behavior[T]):
 
 
 class BehaviorProcessorImpl(BehaviorProcessor[T]):
-    _parent_nursery: trio.Nursery
-    _own_nursery: trio.Nursery
-
+    _nursery: ActorNursery
+    
     _send: trio.abc.SendChannel[T]
     _receive: trio.abc.ReceiveChannel[T]
 
     _behavior: Callable[[], _AsyncGeneratorContextManager[BehaviorHandler[T]]]
     _ctx: Context[T]
 
-    _stopped: bool = False
-
-    def __init__(self, nursery: trio.Nursery, behavior: Callable[[], _AsyncGeneratorContextManager[BehaviorHandler[T]]], name: str) -> None:
+    def __init__(self, nursery: ActorNursery, behavior: Callable[[], _AsyncGeneratorContextManager[BehaviorHandler[T]]], name: str) -> None:
         super().__init__()
-        self._parent_nursery = nursery
+        self._nursery = nursery
         self._send, self._receive = trio.open_memory_channel(0)
         self._behavior = behavior
         self._ref = LocalRef[T](self)
@@ -102,7 +97,8 @@ class BehaviorProcessorImpl(BehaviorProcessor[T]):
 
     def handle(self, msg: T) -> None:
         # put into channel
-        self._own_nursery.start_soon(self._send.send, msg)
+        self._send.se
+        self._nursery.nursery.start_soon(self._send.send, msg)
 
     async def behavior_task(self) -> None:
         """
@@ -121,19 +117,18 @@ class BehaviorProcessorImpl(BehaviorProcessor[T]):
                         case Behaviors.Same:
                             pass
                         case Behaviors.Stop:
-                            self.stop()
+                            await self.stop()
                         case BehaviorHandler():
                             b = new_behavior
         finally:
-            for c in self._ctx._children:
-                c.stop()
+            pass
 
 
-    def stop(self) -> None:
+    async def stop(self) -> None:
         """
         Stops the behavior and
         """
-        pass
+        await self._send.aclose()
 
 
 class Behaviors:

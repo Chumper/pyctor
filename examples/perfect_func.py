@@ -28,6 +28,7 @@ async def main() -> None:
     print("Actor System is starting up")
 
     async with pyctor.open_nursery() as n:
+
         # spawn actor
         # n.spawn(Behaviors.)
         root_ref = await n.spawn(root_actor)

@@ -1,23 +1,23 @@
-from contextlib import _AsyncGeneratorContextManager, _GeneratorContextManager, asynccontextmanager
+from contextlib import _AsyncGeneratorContextManager, asynccontextmanager
 from logging import getLogger
 from types import FunctionType
 from typing import AsyncGenerator, Callable, List
 from uuid import uuid4
 
 import trio
-from pyctor.behavior import BehaviorProcessorImpl
 
-from pyctor.types import Behavior, BehaviorHandler, Context, Ref, Spawner, T
+from pyctor.behavior import BehaviorProcessorImpl
+from pyctor.types import ActorNursery, Behavior, BehaviorHandler, Ref, Spawner, T
 
 logger = getLogger(__name__)
 
 class SpawnMixin(Spawner):
-    children: List[Ref] = []
-    nursery: trio.Nursery
+    _children: List[Ref] = []
+    _nursery: ActorNursery
 
-    def __init__(self, nursery: trio.Nursery) -> None:
+    def __init__(self, nursery: ActorNursery) -> None:
         super().__init__()
-        self.nursery = nursery
+        self._nursery = nursery
 
     async def spawn(
         self,
@@ -41,24 +41,10 @@ class SpawnMixin(Spawner):
                 )
 
         # create the process
-        b = BehaviorProcessorImpl(nursery=self.nursery, behavior=impl, name=name)
+        b = BehaviorProcessorImpl(nursery=self._nursery, behavior=impl, name=name)
         # start in the nursery
-        self.nursery.start_soon(b.behavior_task)
+        self._nursery.start_soon(b.behavior_task)
         # append to array
         self.children.append(b.ref())
         # return the ref
         return b._ref
-
-
-class ContextImpl(SpawnMixin, Context[T]):
-    _ref: Ref[T]
-
-    def __init__(self, nursery: trio.Nursery, ref: Ref[T]) -> None:
-        super().__init__(nursery)
-        self._ref = ref
-
-    def self(self) -> Ref[T]:
-        """
-        Returns the address of the Behavior belonging to this context.
-        """
-        return self._ref

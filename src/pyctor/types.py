@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 from contextlib import _AsyncGeneratorContextManager
-from enum import Enum
-from typing import AsyncGenerator, Awaitable, Callable, Generic, List, Protocol, TypeAlias, TypeVar, overload, runtime_checkable
-from uuid import UUID, uuid4
+from typing import Any, AsyncGenerator, Awaitable, Callable, Generic, List, Protocol, TypeAlias, TypeVar, overload, runtime_checkable
+from uuid import uuid4
 
 import trio
 
@@ -36,15 +35,10 @@ class BehaviorHandler(Protocol[T]):
         ...
 
 
-class Spawner:
+class Spawner(ABC):
     """
     A Spawner handles the spawning of new Behaviors.
-    Mostly integrated into a Context.
-    """
-
-    _children: List["BehaviorProcessor"] = []
-    """
-    Contains the children of the context
+    Mostly integrated into a ContextManager
     """
 
     @overload
@@ -64,27 +58,21 @@ class Spawner:
         ...
     
     @abstractmethod
-    async def spawn(self, behavior: Behavior[T] | Callable[[],AsyncGenerator[Behavior[T], None]], name: str = str(uuid4())) -> "Ref[T]":
+    async def spawn(self, behavior: Behavior[T] | Callable[[], _AsyncGeneratorContextManager[Behavior[T]]], name: str = str(uuid4())) -> "Ref[T]":
         """
         Will spawn the given Behavior in the context of the integrated class.
         In most cases will spawn a child actor in the context of another actor.
         """
         ...
 
-
-class Context(Spawner, Generic[T]):
-    nursery: trio.Nursery
-    
-    """
-    A Context is given to each Behavior. A Context can be used to spawn new Behaviors or to get the own address.
-    A Context will wrap a spawn action into a nursery so that child behaviors get destroyed once a behavior is stopped.
-    """
-
-    def self(self) -> "Ref[T]":
+    @abstractmethod
+    def children(self) -> List["Ref[Any]"]:
         """
-        Returns the address of the Behavior belonging to this context.
+        Returns a list of children, which means that those are 
+        behavior tasks that have been spawned by this Spawner
         """
         ...
+
 
 
 BehaviorFunction: TypeAlias = Callable[[T], Awaitable[Behavior[T]]]
@@ -99,7 +87,7 @@ class BehaviorProcessor(Generic[T], ABC):
     def handle(self, msg: T) -> None:
         ...
 
-    def stop(self) -> None:
+    async def stop(self) -> None:
         ...
 
     async def behavior_task(self):
@@ -184,6 +172,13 @@ class Ref(Generic[T], ABC):
         Will return the address of this Behavior
         """
         ...
+
+class ActorNursery(Spawner, ABC):
+    def __init__(self, nursery: trio.Nursery) -> None:
+        super().__init__(nursery)
+
+    def cancel
+    
 
 
 class Dispatcher(ABC):
