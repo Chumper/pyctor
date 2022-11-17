@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from contextlib import _AsyncGeneratorContextManager
 from enum import Enum
 from typing import AsyncGenerator, Awaitable, Callable, Generic, List, Protocol, TypeAlias, TypeVar, overload, runtime_checkable
 from uuid import UUID, uuid4
@@ -26,7 +27,7 @@ class BehaviorHandler(Protocol[T]):
     This class fullfills the Protocol requirements needed to handle the internals.
     """
 
-    async def handle(self, ctx: "Context[T]", msg: T) -> "Behavior[T]":
+    async def handle(self, msg: T) -> "Behavior[T]":
         """
         Whenever a new message is received by the Behavior the handle method is called.
         The returned Behavior is used to either setup the new Behavior for the next message
@@ -47,7 +48,7 @@ class Spawner:
     """
 
     @overload
-    async def spawn(self, behavior: Callable[[],AsyncGenerator[Behavior[T], None]], name: str = str(uuid4())) -> "Ref[T]":
+    async def spawn(self, behavior: Callable[[], _AsyncGeneratorContextManager[Behavior[T]]], name: str = str(uuid4())) -> "Ref[T]":
         """
         Will spawn the given Behavior in the context of the integrated class.
         In most cases will spawn a child actor in the context of another actor.
@@ -86,7 +87,7 @@ class Context(Spawner, Generic[T]):
         ...
 
 
-BehaviorFunction: TypeAlias = Callable[["Context[T]", T], Awaitable[Behavior[T]]]
+BehaviorFunction: TypeAlias = Callable[[T], Awaitable[Behavior[T]]]
 """
 Type alias to define a function that can handle a generic message in the actor system and returns a Behavior 
 """

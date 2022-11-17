@@ -30,11 +30,10 @@ async def main() -> None:
     async with pyctor.open_nursery() as n:
         # spawn actor
         # n.spawn(Behaviors.)
+        root_ref = await n.spawn(root_actor)
         for i in range(10):
-            root_ref = n.spawn(root_actor)
-            n.children
-            # await asystem.root().send(f"Hi from the ActorSystem {i}")
-    
+            root_ref.send_nowait(f"Hi from the ActorSystem {i}")
+
         # not possible due to type safety, comment in to see mypy in action
         # asystem.root().send(1)
         # asystem.root().send(True)

@@ -1,11 +1,15 @@
-from typing import Any, AsyncGenerator, Callable, List
+from contextlib import _AsyncGeneratorContextManager, _GeneratorContextManager, asynccontextmanager
+from logging import getLogger
+from types import FunctionType
+from typing import AsyncGenerator, Callable, List
 from uuid import uuid4
 
 import trio
+from pyctor.behavior import BehaviorProcessorImpl
 
-import pyctor.behavior
-from pyctor.types import Behavior, BehaviorHandler, BehaviorProcessor, Context, Ref, Spawner, T
+from pyctor.types import Behavior, BehaviorHandler, Context, Ref, Spawner, T
 
+logger = getLogger(__name__)
 
 class SpawnMixin(Spawner):
     children: List[Ref] = []
@@ -15,19 +19,29 @@ class SpawnMixin(Spawner):
         super().__init__()
         self.nursery = nursery
 
-    async def spawn(self, behavior: Callable[[],AsyncGenerator[Behavior[T], None]] | Behavior[T], name: str = str(uuid4())) -> Ref[T]:
+    async def spawn(
+        self,
+        behavior: Callable[[], _AsyncGeneratorContextManager[Behavior[T]]] | Behavior[T],
+        name: str = str(uuid4()),
+    ) -> Ref[T]:
+        impl: Callable[[], _AsyncGeneratorContextManager[BehaviorHandler[T]]]
         match behavior:
             case BehaviorHandler():
-                pass
-            case function():
-                pass
+                logger.debug("Creating ContextManager from single Behavior")
+                @asynccontextmanager
+                async def f() -> AsyncGenerator[BehaviorHandler[T], None]:
+                    yield behavior
+                impl = f
+            case FunctionType():
+                logger.debug("Using ContextManager from Function")
+                impl = behavior
             case _:
-                raise ValueError("behavior needs to implement the Behavior or the Generator Protocol")
+                raise ValueError(
+                    "behavior needs to implement the Behavior or the Generator Protocol"
+                )
 
-        # narrow class down to a BehaviorProtocol
-        assert isinstance(behavior, (Callable[[],AsyncGenerator], BehaviorHandler)), "behavior needs to implement the BehaviorProtocol"
         # create the process
-        b = pyctor.behavior.BehaviorProcessorImpl(nursery=self.nursery, behavior=behavior, name=name)
+        b = BehaviorProcessorImpl(nursery=self.nursery, behavior=impl, name=name)
         # start in the nursery
         self.nursery.start_soon(b.behavior_task)
         # append to array
