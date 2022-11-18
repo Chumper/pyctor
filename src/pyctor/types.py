@@ -1,23 +1,7 @@
 from abc import ABC, abstractmethod
 from contextlib import _AsyncGeneratorContextManager
-from typing import (
-    Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    Generic,
-    List,
-    Protocol,
-    Type,
-    TypeAlias,
-    TypeVar,
-    get_args,
-    overload,
-    runtime_checkable,
-)
+from typing import Any, Awaitable, Callable, Generic, List, NoReturn, Protocol, Type, TypeAlias, TypeVar, get_args, overload, runtime_checkable
 from uuid import uuid4
-
-import trio
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -80,8 +64,7 @@ class Spawner(ABC):
     @abstractmethod
     async def spawn(
         self,
-        behavior: Behavior[T]
-        | Callable[[], _AsyncGeneratorContextManager[Behavior[T]]],
+        behavior: Behavior[T] | Callable[[], _AsyncGeneratorContextManager[Behavior[T]]],
         name: str = str(uuid4()),
     ) -> "Ref[T]":
         """
@@ -101,9 +84,12 @@ class Spawner(ABC):
     @abstractmethod
     async def stop(self) -> None:
         """
-        Will stop all children.
+        Will stop all children that have been spawned by this nursery.
+
+        If this is the top most behavior nursery, then it will tear down the whole behavior tree
         """
         ...
+
 
 BehaviorFunction: TypeAlias = Callable[[T], Awaitable[Behavior[T]]]
 """
@@ -134,30 +120,16 @@ class BehaviorProcessor(Generic[T], ABC):
         ...
 
 
-class ReplyProtocol(Protocol[T]):
+class ReplyProtocol(Protocol[V, T]):  # type: ignore
     """
-    Defines the interface that is needed if the ask pattern is being used with pyctor.
-    Every message requires a reply_to ref so that typing can interfer the types.
+    Defines the interface that is needed if the ask pattern is being used with the system.
+    Every message requires a reply_to ref so that typing can infer the types.
     """
 
-    reply_to: "Ref[T]"
+    reply_to: "Ref[V]"
     """
     The typed Ref that should receive the response (if any)
     """
-
-
-class Actor(Generic[T], ABC):
-    """
-    OOP part of Pyctor. A class needs to implement the Actor interface to be scheduled.
-    It is not nessesarly needed, but gives developers guidance on what to provide.
-    """
-
-    def create(self) -> Behavior[T]:
-        """
-        Static function that will return a Behavior from an actor.
-        This method is the main entry point into the actor system for the actor class.
-        """
-        ...
 
 
 class Ref(Generic[T], ABC):
@@ -194,9 +166,9 @@ class Ref(Generic[T], ABC):
         """
         ...
 
-    async def ask(self, msg: ReplyProtocol[V]) -> V:
+    async def ask(self, f: Callable[["Ref[V]"], ReplyProtocol[V, T]]) -> V:
         """
-        EXPERIMENTAL: Not sure yet if this should stay.
+        EXPERIMENTAL: Feedback needed
 
         Will send a typed message to a Ref and waits for an answer.
         Internally this will spawn a ResponseBehavior and sets the reply_to to this newly spawned behavior.

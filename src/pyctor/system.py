@@ -3,17 +3,17 @@ from typing import AsyncGenerator
 
 import trio
 
-from pyctor.context import SpawnMixin
-from pyctor.types import ActorNursery
+import pyctor.context
+import pyctor.types
 
 
-class ActorNurseryImpl(ActorNursery, SpawnMixin):
+class ActorNurseryImpl(pyctor.types.ActorNursery, pyctor.context.SpawnMixin):
     def __init__(self, nursery: trio.Nursery) -> None:
         super().__init__(nursery)
 
 
 @asynccontextmanager
-async def open_nursery() -> AsyncGenerator[ActorNursery, None]:
+async def open_nursery() -> AsyncGenerator[pyctor.types.ActorNursery, None]:
     # root nursery that will start all actors and wait for the whole actor system to terminate
     try:
         async with trio.open_nursery() as n:

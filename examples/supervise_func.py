@@ -1,7 +1,7 @@
 import trio
 
 import pyctor
-from pyctor.behavior import Behavior, Behaviors, SuperviseStrategy
+from pyctor import Behavior, Behaviors, SuperviseStrategy
 
 """
 Simple functional example how to spawn an actor that will print messages
@@ -25,20 +25,22 @@ async def exception_handler(error: Exception) -> SuperviseStrategy:
 
 async def main() -> None:
     print("Actor System is starting up")
-    root_behavior = Behaviors.receive_message(root_handler)
+    root_behavior = Behaviors.receive(root_handler)
     supervise_behavior = Behaviors.supervise(exception_handler, root_behavior)
 
-    async with pyctor.root_behavior(supervise_behavior) as asystem:
-        await asystem.root().send(f"Hi from the ActorSystem")
-        await asystem.root().send(f"crash")
-        await asystem.root().send(f"Hi from the ActorSystem")
+    async with pyctor.open_nursery() as n:
+        ref = await n.spawn(supervise_behavior)
+
+        await ref.send(f"Hi from the ActorSystem")
+        await ref.send(f"crash")
+        await ref.send(f"Hi from the ActorSystem")
 
         # not possible due to type safety, comment in to see mypy in action
-        # asystem.root().send(1)
-        # asystem.root().send(True)
+        # ref.send(1)
+        # ref.send(True)
 
         # stop the system, otherwise actors will stay alive forever
-        await asystem.stop()
+        await n.stop()
     print("Actor System was shut down")
 
 

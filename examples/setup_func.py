@@ -1,50 +1,68 @@
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
 import trio
 
 import pyctor
-from pyctor.behavior import Behavior, Behaviors, Context, LoggingBehaviorHandlerImpl
+from pyctor.behavior import Behaviors
+from pyctor.types import Behavior
 
 """
-Simple functional example to show how to spawn an actor as part of the setup behavior.
-Child actors have a very simple behavior with no state.
+Simple functional example to show how to spawn a behavior with setup and teardown.
+Child behaviors have a very simple behavior with no state.
 """
 
 
-async def child_handle(msg: str) -> Behavior[str]:
-    print(f"child actor received: {msg}")
+async def child_handler(msg: str) -> Behavior[str]:
+    print(f"child behavior received: {msg}")
     return Behaviors.Same
 
 
-async def root_setup(ctx: Context[str]) -> Behavior[str]:
-    print("Hi from root actor setup")
+# If a setup and/or teardown method is required, then an AsyncGenerator needs to be provided.
+# For that the annotation @asynccontextmanager is useful to not implement the whole interface.
+# The behavior is then yielded. The system now handles setup and teardown correctly.
+@asynccontextmanager
+async def parent_setup() -> AsyncGenerator[Behavior[str], None]:
+    # setup
+    print("Hi from parent behavior setup")
 
-    # spawn child actors
-    child_behavior = Behaviors.receive_message(child_handle)
-    child_ref = await ctx.spawn(child_behavior)
+    # spawn child behaviors
+    child_behavior = Behaviors.receive(child_handler)
 
-    async def root_handle(msg: str) -> Behavior[str]:
-        print(f"root actor received: {msg}")
-        # also send to child_ref
-        child_ref.send(msg)
-        return Behaviors.Same
+    async with pyctor.open_nursery() as n:
+        child_ref = await n.spawn(child_behavior)
 
-    # return root behavior
-    return Behaviors.receive_message(root_handle)
+        async def parent_handler(msg: str) -> Behavior[str]:
+            print(f"parent behavior received: {msg}")
+            # also send to child_ref
+            child_ref.send_nowait(msg)
+            return Behaviors.Same
+
+        # yield root behavior
+        yield Behaviors.receive(parent_handler)
+
+        # child is not yet terminated here
+        # await child_ref.send("Not yet terminated")
+
+    # child is already terminated here
+    # await child_ref.send("Will error out")
+
+    # teardown
+    print("Hi from parent behavior teardown")
 
 
 async def main() -> None:
-    print("Actor System is starting up")
-    behavior = Behaviors.setup(root_setup)
+    print("behavior tree is starting up")
 
-    async with pyctor.root_behavior(LoggingBehaviorHandlerImpl(behavior)) as asystem:
-        asystem.root().send(f"Hi from the ActorSystem")
+    async with pyctor.open_nursery() as n:
+        parent_ref = await n.spawn(parent_setup)
 
-        # not possible due to type safety, comment in to see mypy in action
-        # asystem.root().send(1)
-        # asystem.root().send(True)
+        await parent_ref.send(f"Hi from the ActorSystem")
 
+        await trio.sleep(1)
         # stop the system, otherwise actors will stay alive forever
-        asystem.stop()
-    print("Actor System was shut down")
+        await n.stop()
+    print("behavior tree was shut down")
 
 
 if __name__ == "__main__":

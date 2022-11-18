@@ -18,7 +18,7 @@ async def root_actor():
     # setup
     print("setup")
     # initial behavior
-    yield Behaviors.receive(str, root_handler)
+    yield Behaviors.receive(root_handler, type_check=str)
     # teardown
     print("teardown")
 
@@ -35,7 +35,6 @@ async def main() -> None:
             root_ref.send_nowait(f"Hi from the ActorSystem {i}")
 
         for d in n.children():
-            d.send_nowait(None)
             str_ref = d.unsafe_cast(str)
             str_ref.send_nowait("Hallo")
 

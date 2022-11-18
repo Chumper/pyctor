@@ -1,4 +1,3 @@
-from pyctor.types import BehaviorHandler
-
-from .behavior import Ref
+from .behavior import Behaviors, SuperviseStrategy
 from .system import open_nursery
+from .types import Behavior, BehaviorHandler, Ref

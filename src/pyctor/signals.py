@@ -1,12 +1,11 @@
-
 from dataclasses import dataclass
 from typing import Any
 
-from pyctor.types import T, Behavior
+import pyctor.types
 
 
 @dataclass
-class BehaviorSignal(Behavior[Any]):
+class BehaviorSignal(pyctor.types.Behavior[Any]):
     """
     A class to house all BehaviorSignal that can be returned by a Behavior
     """

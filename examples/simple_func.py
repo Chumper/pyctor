@@ -1,34 +1,38 @@
 import trio
 
 import pyctor
-from pyctor.behavior import Behavior, Behaviors
-from pyctor.types import Context, LifecycleSignal
+from pyctor.behavior import Behaviors
+from pyctor.types import Behavior
 
 """
-Simple functional example how to spawn an actor that will print messages
+Simple functional example how to spawn a behavior that will print messages
 """
 
 
-async def root_handler(ctx: Context[str], msg: str | LifecycleSignal) -> Behavior[str]:
-    print(f"root actor received: {msg}")
+async def message_handler(msg: str) -> Behavior[str]:
+    print(f"message behavior received: {msg}")
     return Behaviors.Same
 
 
 async def main() -> None:
-    print("Actor System is starting up")
-    root_behavior = Behaviors.receive(root_handler)
+    print("behavior tree is starting up")
+    message_behavior = Behaviors.receive(message_handler)
 
-    async with pyctor.root_behavior(root_behavior) as asystem:
+    async with pyctor.open_nursery() as n:
+        # spawn the behavior
+        message_ref = await n.spawn(message_behavior)
+
         for i in range(10):
-            await asystem.root().send(f"Hi from the ActorSystem {i}")
+            message_ref.send_nowait(f"Hi from the ActorSystem {i}")
 
         # not possible due to type safety, comment in to see mypy in action
-        # asystem.root().send(1)
-        # asystem.root().send(True)
+        # await message_ref.send(1)
+        # await message_ref.send(True)
 
-        # stop the system, otherwise actors will stay alive forever
-        await asystem.stop()
-    print("Actor System was shut down")
+        await trio.sleep(1)
+        # stop the system, otherwise behaviors will stay alive forever
+        await n.stop()
+    print("behavior tree was shut down")
 
 
 if __name__ == "__main__":
