@@ -1,23 +1,31 @@
 from contextlib import _AsyncGeneratorContextManager, asynccontextmanager
 from logging import getLogger
-from types import FunctionType
-from typing import AsyncGenerator, Callable, List
+from types import FunctionType, NoneType
+from typing import Any, AsyncGenerator, Callable, Dict, List, Type, TypedDict, get_args
 from uuid import uuid4
 
 import trio
 
 from pyctor.behavior import BehaviorProcessorImpl
-from pyctor.types import ActorNursery, Behavior, BehaviorHandler, Ref, Spawner, T
+from pyctor.types import T, ActorNursery, Behavior, BehaviorHandler, Ref, Spawner, T
 
 logger = getLogger(__name__)
 
 class SpawnMixin(Spawner):
-    _children: List[Ref] = []
-    _nursery: ActorNursery
+    _children: List[Ref[None]] = []
+    
+    _nursery: trio.Nursery
 
-    def __init__(self, nursery: ActorNursery) -> None:
+    def __init__(self, nursery: trio.Nursery) -> None:
         super().__init__()
         self._nursery = nursery
+
+    def children(self) -> List["Ref[None]"]:
+        return self._children
+
+    async def stop(self) -> None:
+        for c in self._children:
+            await c.stop()
 
     async def spawn(
         self,
@@ -41,10 +49,10 @@ class SpawnMixin(Spawner):
                 )
 
         # create the process
-        b = BehaviorProcessorImpl(nursery=self._nursery, behavior=impl, name=name)
+        b = BehaviorProcessorImpl[T](nursery=self._nursery, behavior=impl, name=name)
         # start in the nursery
         self._nursery.start_soon(b.behavior_task)
         # append to array
-        self.children.append(b.ref())
+        self._children.append(b.ref())  # type: ignore
         # return the ref
-        return b._ref
+        return b.ref()

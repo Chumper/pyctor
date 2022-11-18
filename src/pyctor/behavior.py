@@ -1,13 +1,13 @@
 from contextlib import _AsyncGeneratorContextManager
 from enum import Enum
 from logging import getLogger
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Type, get_args
 
 import trio
 
 from pyctor.ref import LocalRef
 from pyctor.signals import BehaviorSignal
-from pyctor.types import ActorNursery, Behavior, BehaviorFunction, BehaviorHandler, BehaviorProcessor, Context, Ref, T
+from pyctor.types import Behavior, BehaviorFunction, BehaviorHandler, BehaviorProcessor, Ref, T
 
 logger = getLogger(__name__)
 
@@ -76,15 +76,14 @@ class SuperviseBehaviorHandlerImpl(BehaviorHandler[T], Behavior[T]):
 
 
 class BehaviorProcessorImpl(BehaviorProcessor[T]):
-    _nursery: ActorNursery
+    _nursery: trio.Nursery
     
     _send: trio.abc.SendChannel[T]
     _receive: trio.abc.ReceiveChannel[T]
 
     _behavior: Callable[[], _AsyncGeneratorContextManager[BehaviorHandler[T]]]
-    _ctx: Context[T]
 
-    def __init__(self, nursery: ActorNursery, behavior: Callable[[], _AsyncGeneratorContextManager[BehaviorHandler[T]]], name: str) -> None:
+    def __init__(self, nursery: trio.Nursery, behavior: Callable[[], _AsyncGeneratorContextManager[BehaviorHandler[T]]], name: str) -> None:
         super().__init__()
         self._nursery = nursery
         self._send, self._receive = trio.open_memory_channel(0)
@@ -95,10 +94,12 @@ class BehaviorProcessorImpl(BehaviorProcessor[T]):
     def ref(self) -> "Ref[T]":
         return self._ref
 
-    def handle(self, msg: T) -> None:
+    async def handle(self, msg: T) -> None:
+        await self._send.send(msg)
+    
+    def handle_nowait(self, msg: T) -> None:
         # put into channel
-        self._send.se
-        self._nursery.nursery.start_soon(self._send.send, msg)
+        self._nursery.start_soon(self._send.send, msg)
 
     async def behavior_task(self) -> None:
         """
@@ -110,6 +111,7 @@ class BehaviorProcessorImpl(BehaviorProcessor[T]):
             async with self._behavior() as b:
                 while True:
                     msg = await self._receive.receive()
+                    print(get_args(self.ref__orig_bases__), type(msg))  # type: ignore
                     new_behavior = await b.handle(msg)
                     match new_behavior:
                         case Behaviors.Ignored:
@@ -120,6 +122,9 @@ class BehaviorProcessorImpl(BehaviorProcessor[T]):
                             await self.stop()
                         case BehaviorHandler():
                             b = new_behavior
+        except trio.EndOfChannel:
+            # actor will be stopped
+            pass
         finally:
             pass
 
@@ -156,11 +161,11 @@ class Behaviors:
     """
 
     @staticmethod
-    def receive(func: Callable[[T], Awaitable[Behavior[T]]]) -> Behavior[T]:
+    def receive(clazz: Type[T], func: Callable[[T], Awaitable[Behavior[T]]]) -> Behavior[T]:
         """
         Defines a Behavior that handles custom messages as well as lifecycle signals.
         """
-        return BehaviorHandlerImpl(behavior=func)
+        return BehaviorHandlerImpl(clazz=clazz, behavior=func)
 
     @staticmethod
     def supervise(strategy: Callable[[Exception], Awaitable[SuperviseStrategy]], behavior: Behavior[T]) -> Behavior[T]:

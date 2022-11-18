@@ -1,6 +1,20 @@
 from abc import ABC, abstractmethod
 from contextlib import _AsyncGeneratorContextManager
-from typing import Any, AsyncGenerator, Awaitable, Callable, Generic, List, Protocol, TypeAlias, TypeVar, overload, runtime_checkable
+from typing import (
+    Any,
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    Generic,
+    List,
+    Protocol,
+    Type,
+    TypeAlias,
+    TypeVar,
+    get_args,
+    overload,
+    runtime_checkable,
+)
 from uuid import uuid4
 
 import trio
@@ -42,7 +56,12 @@ class Spawner(ABC):
     """
 
     @overload
-    async def spawn(self, behavior: Callable[[], _AsyncGeneratorContextManager[Behavior[T]]], name: str = str(uuid4())) -> "Ref[T]":
+    @abstractmethod
+    async def spawn(
+        self,
+        behavior: Callable[[], _AsyncGeneratorContextManager[Behavior[T]]],
+        name: str = str(uuid4()),
+    ) -> "Ref[T]":
         """
         Will spawn the given Behavior in the context of the integrated class.
         In most cases will spawn a child actor in the context of another actor.
@@ -50,15 +69,21 @@ class Spawner(ABC):
         ...
 
     @overload
+    @abstractmethod
     async def spawn(self, behavior: Behavior[T], name: str = str(uuid4())) -> "Ref[T]":
         """
         Will spawn the given Behavior in the context of the integrated class.
         In most cases will spawn a child actor in the context of another actor.
         """
         ...
-    
+
     @abstractmethod
-    async def spawn(self, behavior: Behavior[T] | Callable[[], _AsyncGeneratorContextManager[Behavior[T]]], name: str = str(uuid4())) -> "Ref[T]":
+    async def spawn(
+        self,
+        behavior: Behavior[T]
+        | Callable[[], _AsyncGeneratorContextManager[Behavior[T]]],
+        name: str = str(uuid4()),
+    ) -> "Ref[T]":
         """
         Will spawn the given Behavior in the context of the integrated class.
         In most cases will spawn a child actor in the context of another actor.
@@ -66,14 +91,19 @@ class Spawner(ABC):
         ...
 
     @abstractmethod
-    def children(self) -> List["Ref[Any]"]:
+    def children(self) -> List["Ref[None]"]:
         """
-        Returns a list of children, which means that those are 
+        Returns a list of children, which means that those are
         behavior tasks that have been spawned by this Spawner
         """
         ...
 
-
+    @abstractmethod
+    async def stop(self) -> None:
+        """
+        Will stop all children.
+        """
+        ...
 
 BehaviorFunction: TypeAlias = Callable[[T], Awaitable[Behavior[T]]]
 """
@@ -83,8 +113,15 @@ Type alias to define a function that can handle a generic message in the actor s
 
 class BehaviorProcessor(Generic[T], ABC):
     _name: str
+    _type_T: Any
 
-    def handle(self, msg: T) -> None:
+    def __init_subclass__(cls) -> None:
+        cls._type_T = get_args(cls.__orig_bases__[0])[0]  # type: ignore
+
+    async def handle(self, msg: T) -> None:
+        ...
+
+    def handle_nowait(self, msg: T) -> None:
         ...
 
     async def stop(self) -> None:
@@ -173,12 +210,12 @@ class Ref(Generic[T], ABC):
         """
         ...
 
-class ActorNursery(Spawner, ABC):
-    def __init__(self, nursery: trio.Nursery) -> None:
-        super().__init__(nursery)
+    def unsafe_cast(self, clazz: Type[U]) -> "Ref[U]":
+        ...
 
-    def cancel
-    
+
+class ActorNursery(Spawner):
+    pass
 
 
 class Dispatcher(ABC):

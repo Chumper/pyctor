@@ -5,11 +5,10 @@ import trio
 
 import pyctor
 from pyctor.behavior import Behavior, Behaviors
-from pyctor.types import Context
 
 
 @asynccontextmanager
-async def root_actor() -> AsyncGenerator[Behavior[str], None]:
+async def root_actor():
     # The whole lifecycle of the actor happens inside this generator function
 
     async def root_handler(msg: str) -> Behavior[str]:
@@ -19,7 +18,7 @@ async def root_actor() -> AsyncGenerator[Behavior[str], None]:
     # setup
     print("setup")
     # initial behavior
-    yield Behaviors.receive(root_handler)
+    yield Behaviors.receive(str, root_handler)
     # teardown
     print("teardown")
 
@@ -35,13 +34,20 @@ async def main() -> None:
         for i in range(10):
             root_ref.send_nowait(f"Hi from the ActorSystem {i}")
 
+        for d in n.children():
+            d.send_nowait(None)
+            str_ref = d.unsafe_cast(str)
+            str_ref.send_nowait("Hallo")
+
+        await trio.sleep(1)
+        await n.stop()
         # not possible due to type safety, comment in to see mypy in action
         # asystem.root().send(1)
         # asystem.root().send(True)
 
         # stop the system, otherwise actors will stay alive forever
     #     await asystem.stop()
-    # print("Actor System was shut down")
+    print("Actor System was shut down")
 
 
 if __name__ == "__main__":
