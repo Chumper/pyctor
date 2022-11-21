@@ -1,37 +1,39 @@
-import os
-from multiprocessing import cpu_count
-
 import trio
 
+import os
 import pyctor
-from pyctor.behavior import Behavior, Behaviors
-from pyctor.types import Context
+from pyctor.behavior import Behaviors
+from pyctor.types import Behavior, BehaviorNurseryOptions
 
 """
-Simple functional example how to spawn actors on multiple cores
+Simple functional example how to spawn a behavior on multiple cores
 """
 
 
-async def process_setup(ctx: Context[str]) -> Behavior[str]:
-    print(f"Yo, i'm '{ctx.self().address()}' " f"running in pid {os.getpid()}")
-
-    async def process_handle(msg: str) -> Behavior[str]:
-        return Behaviors.Same
-
-    # return root behavior
-    return Behaviors.receive_message(process_handle)
+async def message_handler(msg: str) -> Behavior[str]:
+    print(f"PID {os.getpid()} got a message: {msg}")
+    return Behaviors.Same
 
 
 async def main() -> None:
-    print("Actor System is starting up")
-    process_behavior = Behaviors.setup(process_setup)
+    print("behavior tree is starting up")
+    message_behavior = Behaviors.receive(message_handler)
 
     async with pyctor.open_nursery() as n:
-        with pyctor.multicore_dispatcher(n):
-            for i in range(cpu_count()):
-                print(f"spawning worker_{i}")
-                ref = await n.spawn(process_behavior, name=f"worker_{i}")
-    print("Actor System was shut down")
+        # spawn the behavior
+        message_ref = await n.spawn(message_behavior)
+
+        for i in range(10):
+            message_ref.send_nowait(f"Hi from the ActorSystem {i}")
+
+        # not possible due to type safety, comment in to see mypy in action
+        # await message_ref.send(1)
+        # await message_ref.send(True)
+
+        await trio.sleep(1)
+        # stop the system, otherwise behaviors will stay alive forever
+        await n.stop()
+    print("behavior tree was shut down")
 
 
 if __name__ == "__main__":

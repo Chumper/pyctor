@@ -8,6 +8,7 @@ import trio
 
 import pyctor.behavior
 import pyctor.types
+import pyctor._util
 
 logger = getLogger(__name__)
 
@@ -17,9 +18,12 @@ class SpawnMixin(pyctor.types.Spawner):
 
     _nursery: trio.Nursery
 
-    def __init__(self, nursery: trio.Nursery) -> None:
+    _dispatcher: pyctor.types.Dispatcher
+
+    def __init__(self, nursery: trio.Nursery, dispatcher: pyctor.types.Dispatcher) -> None:
         super().__init__()
         self._nursery = nursery
+        self._dispatcher = dispatcher
 
     def children(self) -> List[pyctor.types.Ref[None]]:
         return self._children
@@ -33,31 +37,11 @@ class SpawnMixin(pyctor.types.Spawner):
         behavior: Callable[[], _AsyncGeneratorContextManager[pyctor.types.Behavior[pyctor.types.T]]] | pyctor.types.Behavior[pyctor.types.T],
         name: str = str(uuid4()),
     ) -> pyctor.types.Ref[pyctor.types.T]:
-        impl: Callable[[], _AsyncGeneratorContextManager[pyctor.types.BehaviorHandler[pyctor.types.T]]]
-        match behavior:
-            case pyctor.types.BehaviorHandler():
-                logger.debug("Creating ContextManager from single Behavior")
 
-                @asynccontextmanager
-                async def f() -> AsyncGenerator[pyctor.types.BehaviorHandler[pyctor.types.T], None]:
-                    yield behavior
+        impl = pyctor._util.to_contextmanager(behavior)
+        ref = await self._dispatcher.dispatch(behavior=impl, name=name)
 
-                impl = f
-            case FunctionType():
-                logger.debug("Using ContextManager from Function")
-                impl = behavior
-            case _:
-                raise ValueError("behavior needs to implement the Behavior or the Generator Protocol")
-
-        # create the process
-        b = pyctor.behavior.BehaviorProcessorImpl[pyctor.types.T](
-            nursery=self._nursery,
-            behavior=impl,
-            name=name,
-        )
-        # start in the nursery
-        self._nursery.start_soon(b.behavior_task)
         # append to array
-        self._children.append(b.ref())  # type: ignore
+        self._children.append(ref)  # type: ignore
         # return the ref
-        return b.ref()
+        return ref

@@ -4,7 +4,8 @@ from typing import AsyncGenerator
 import trio
 
 import pyctor
-from pyctor.behavior import Behavior, Behaviors
+from pyctor.behavior import Behaviors
+from pyctor.types import Behavior
 
 
 @asynccontextmanager

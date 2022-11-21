@@ -1,6 +1,20 @@
 from abc import ABC, abstractmethod
 from contextlib import _AsyncGeneratorContextManager
-from typing import Any, Awaitable, Callable, Generic, List, NoReturn, Protocol, Type, TypeAlias, TypeVar, get_args, overload, runtime_checkable
+from dataclasses import dataclass
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Generic,
+    List,
+    Protocol,
+    Type,
+    TypeAlias,
+    TypeVar,
+    get_args,
+    overload,
+    runtime_checkable,
+)
 from uuid import uuid4
 
 T = TypeVar("T")
@@ -10,7 +24,7 @@ V = TypeVar("V")
 
 class Behavior(ABC, Generic[T]):
     """
-    The basic building block of everything in Pyctor.
+    The basic building block of everything.
     A Behavior defines how an actor will handle a message and will return a Behavior for the next message.
     """
 
@@ -64,7 +78,8 @@ class Spawner(ABC):
     @abstractmethod
     async def spawn(
         self,
-        behavior: Behavior[T] | Callable[[], _AsyncGeneratorContextManager[Behavior[T]]],
+        behavior: Behavior[T]
+        | Callable[[], _AsyncGeneratorContextManager[Behavior[T]]],
         name: str = str(uuid4()),
     ) -> "Ref[T]":
         """
@@ -120,7 +135,7 @@ class BehaviorProcessor(Generic[T], ABC):
         ...
 
 
-class ReplyProtocol(Protocol[V, T]):  # type: ignore
+class ReplyProtocol(Protocol[V]):
     """
     Defines the interface that is needed if the ask pattern is being used with the system.
     Every message requires a reply_to ref so that typing can infer the types.
@@ -166,7 +181,7 @@ class Ref(Generic[T], ABC):
         """
         ...
 
-    async def ask(self, f: Callable[["Ref[V]"], ReplyProtocol[V, T]]) -> V:
+    async def ask(self, f: Callable[["Ref[V]"], ReplyProtocol[V]]) -> V:
         """
         EXPERIMENTAL: Feedback needed
 
@@ -186,10 +201,26 @@ class Ref(Generic[T], ABC):
         ...
 
 
-class ActorNursery(Spawner):
+class BehaviorNursery(Spawner):
     pass
 
 
 class Dispatcher(ABC):
-    async def dispatch(self, handler: BehaviorHandler[T]) -> Ref[T]:
+    """
+    The Dispatcher is responsible to dispatch a Behavior...
+    """
+
+    async def dispatch(
+        self,
+        behavior: Callable[
+            [],
+            _AsyncGeneratorContextManager[BehaviorHandler[T]],
+        ],
+        name: str,
+    ) -> Ref[T]:
         ...
+
+
+@dataclass
+class BehaviorNurseryOptions:
+    dispatcher: Dispatcher | None = None
