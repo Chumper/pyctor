@@ -3,8 +3,11 @@ from typing import Callable
 from uuid import uuid4
 
 import trio
-import pyctor.types
+
 import pyctor.behavior
+import pyctor.system
+import pyctor.types
+
 
 class SingleProcessDispatcher(pyctor.types.Dispatcher):
     """
@@ -18,16 +21,27 @@ class SingleProcessDispatcher(pyctor.types.Dispatcher):
         super().__init__()
         self._nursery = nursery
 
-    async def dispatch(self, behavior: Callable[[], _AsyncGeneratorContextManager[pyctor.types.BehaviorHandler[pyctor.types.T]],], name: str) -> pyctor.types.Ref[pyctor.types.T]:
+    async def dispatch(
+        self,
+        behavior: Callable[
+            [],
+            _AsyncGeneratorContextManager[pyctor.types.BehaviorHandler[pyctor.types.T]],
+        ],
+        name: str,
+    ) -> pyctor.types.Ref[pyctor.types.T]:
+        # create a new memry channel 
+        send, receive = trio.open_memory_channel(0)
         # create the process
         b = pyctor.behavior.BehaviorProcessorImpl[pyctor.types.T](
-            nursery=self._nursery,
             behavior=behavior,
-            name=name,
+            channel=receive
         )
         # start in the nursery
         self._nursery.start_soon(b.behavior_task)
-        return b.ref()
+
+        # register in the registry
+        return pyctor.system.registry.get().register(name=name, channel=send)
+
 
 class MultiProcessDispatcher(pyctor.types.Dispatcher):
     """
@@ -41,7 +55,14 @@ class MultiProcessDispatcher(pyctor.types.Dispatcher):
         super().__init__()
         self._nursery = nursery
 
-    async def dispatch(self, behavior: Callable[[], _AsyncGeneratorContextManager[pyctor.types.BehaviorHandler[pyctor.types.T]],], name: str) -> pyctor.types.Ref[pyctor.types.T]:
+    async def dispatch(
+        self,
+        behavior: Callable[
+            [],
+            _AsyncGeneratorContextManager[pyctor.types.BehaviorHandler[pyctor.types.T]],
+        ],
+        name: str,
+    ) -> pyctor.types.Ref[pyctor.types.T]:
         # create the process
         b = pyctor.behavior.BehaviorProcessorImpl[pyctor.types.T](
             nursery=self._nursery,

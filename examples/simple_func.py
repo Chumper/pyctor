@@ -23,7 +23,7 @@ async def main() -> None:
         message_ref = await n.spawn(message_behavior)
 
         for i in range(10):
-            message_ref.send_nowait(f"Hi from the ActorSystem {i}")
+            message_ref.send(f"Hi from the ActorSystem {i}")
 
         # not possible due to type safety, comment in to see mypy in action
         # await message_ref.send(1)

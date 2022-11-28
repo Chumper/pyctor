@@ -1,6 +1,7 @@
+import os
+
 import trio
 
-import os
 import pyctor
 from pyctor.behavior import Behaviors
 from pyctor.types import Behavior, BehaviorNurseryOptions

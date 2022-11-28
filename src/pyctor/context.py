@@ -6,9 +6,9 @@ from uuid import uuid4
 
 import trio
 
+import pyctor._util
 import pyctor.behavior
 import pyctor.types
-import pyctor._util
 
 logger = getLogger(__name__)
 

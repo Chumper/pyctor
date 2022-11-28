@@ -11,9 +11,7 @@ import pyctor.types
 logger = getLogger(__name__)
 
 
-class BehaviorHandlerImpl(
-    pyctor.types.BehaviorHandler[pyctor.types.T], pyctor.types.Behavior[pyctor.types.T]
-):
+class BehaviorHandlerImpl(pyctor.types.BehaviorHandler[pyctor.types.T], pyctor.types.Behavior[pyctor.types.T]):
     """
     Class that all Behaviors need to implement if they want to be handled by Pyctor.
     This class fullfills the Protocol requirements.
@@ -30,23 +28,14 @@ class BehaviorHandlerImpl(
         self._behavior = behavior
         self._type = type_check
 
-    async def handle(
-        self, msg: pyctor.types.T
-    ) -> pyctor.types.Behavior[pyctor.types.T]:
+    async def handle(self, msg: pyctor.types.T) -> pyctor.types.Behavior[pyctor.types.T]:
         # if the type is given, we assert on it here
         if self._type:
-            assert issubclass(type(msg), self._type), (
-                "Can only handle messages derived from type "
-                + str(self._type)
-                + ", got "
-                + str(type(msg))
-            )
+            assert issubclass(type(msg), self._type), "Can only handle messages derived from type " + str(self._type) + ", got " + str(type(msg))
         return await self._behavior(msg)
 
 
-class LoggingBehaviorHandlerImpl(
-    pyctor.types.BehaviorHandler[pyctor.types.T], pyctor.types.Behavior[pyctor.types.T]
-):
+class LoggingBehaviorHandlerImpl(pyctor.types.BehaviorHandler[pyctor.types.T], pyctor.types.Behavior[pyctor.types.T]):
     """
     Logs every message that goes through the behavior
     """
@@ -56,18 +45,14 @@ class LoggingBehaviorHandlerImpl(
     def __init__(self, behavior: pyctor.types.Behavior[pyctor.types.T]) -> None:
         self._behavior = behavior  # type: ignore
 
-    async def handle(
-        self, msg: pyctor.types.T
-    ) -> pyctor.types.Behavior[pyctor.types.T]:
+    async def handle(self, msg: pyctor.types.T) -> pyctor.types.Behavior[pyctor.types.T]:
         logger.info(f"Start handling: %s", msg)
         b = await self._behavior.handle(msg=msg)
         logger.info(f"End handling: %s", msg)
         return b
 
 
-class SuperviseBehaviorHandlerImpl(
-    pyctor.types.BehaviorHandler[pyctor.types.T], pyctor.types.Behavior[pyctor.types.T]
-):
+class SuperviseBehaviorHandlerImpl(pyctor.types.BehaviorHandler[pyctor.types.T], pyctor.types.Behavior[pyctor.types.T]):
     """
     Will wrap a BehaviorHandler in a supervise strategy
     """
@@ -92,44 +77,20 @@ class SuperviseBehaviorHandlerImpl(
 
 
 class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor[pyctor.types.T]):
-    _nursery: trio.Nursery
-
-    _send: trio.abc.SendChannel[pyctor.types.T]
-    _receive: trio.abc.ReceiveChannel[pyctor.types.T]
-
-    _behavior: Callable[
-        [], _AsyncGeneratorContextManager[pyctor.types.BehaviorHandler[pyctor.types.T]]
-    ]
+    _channel: trio.abc.ReceiveChannel[pyctor.types.T]
+    _behavior: Callable[[], _AsyncGeneratorContextManager[pyctor.types.BehaviorHandler[pyctor.types.T]]]
 
     def __init__(
         self,
-        nursery: trio.Nursery,
         behavior: Callable[
             [],
             _AsyncGeneratorContextManager[pyctor.types.BehaviorHandler[pyctor.types.T]],
         ],
-        name: str,
+        channel: trio.abc.ReceiveChannel[pyctor.types.T],
     ) -> None:
         super().__init__()
-        self._nursery = nursery
-        self._send, self._receive = trio.open_memory_channel(0)
+        self._channel = channel
         self._behavior = behavior
-        self._ref = pyctor.ref.LocalRef[pyctor.types.T](self)
-        self._name = name
-
-    def ref(self) -> pyctor.types.Ref[pyctor.types.T]:
-        return self._ref
-
-    async def handle(self, msg: pyctor.types.T) -> None:
-        try:
-            await self._send.send(msg)
-        except trio.ClosedResourceError:
-            logger.warning("Could not send message, Behavior already terminated")
-            pass
-
-    def handle_nowait(self, msg: pyctor.types.T) -> None:
-        # put into channel
-        self._nursery.start_soon(self.handle, msg)
 
     async def behavior_task(self) -> None:
         """
@@ -143,7 +104,7 @@ class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor[pyctor.types.T]):
             async with behavior() as b:
                 try:
                     while True:
-                        msg = await self._receive.receive()
+                        msg = await self._channel.receive()
                         new_behavior = await b.handle(msg)
                         match new_behavior:
                             case Behaviors.Ignore:
@@ -162,13 +123,6 @@ class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor[pyctor.types.T]):
                     # actor will be stopped
                     # catch exception to enable teardown of behavior
                     run = False
-                    pass
-
-    async def stop(self) -> None:
-        """
-        Stops the behavior and
-        """
-        await self._send.aclose()
 
 
 class Behaviors:
@@ -197,9 +151,7 @@ class Behaviors:
 
     @staticmethod
     def receive(
-        func: Callable[
-            [pyctor.types.T], Awaitable[pyctor.types.Behavior[pyctor.types.T]]
-        ],
+        func: Callable[[pyctor.types.T], Awaitable[pyctor.types.Behavior[pyctor.types.T]]],
         type_check: Type[pyctor.types.T] | None = None,
     ) -> pyctor.types.Behavior[pyctor.types.T]:
         """
@@ -209,9 +161,7 @@ class Behaviors:
 
     @staticmethod
     def setup(
-        func: Callable[
-            [pyctor.types.T], Awaitable[pyctor.types.Behavior[pyctor.types.T]]
-        ],
+        func: Callable[[pyctor.types.T], Awaitable[pyctor.types.Behavior[pyctor.types.T]]],
         type_check: Type[pyctor.types.T] | None = None,
     ) -> pyctor.types.Behavior[pyctor.types.T]:
         """
@@ -225,7 +175,5 @@ class Behaviors:
         behavior: pyctor.types.Behavior[pyctor.types.T],
     ) -> pyctor.types.Behavior[pyctor.types.T]:
         # narrow class down to a BehaviorImpl
-        assert isinstance(
-            behavior, pyctor.types.BehaviorHandler
-        ), "The supervised behavior needs to implement the BehaviorHandler"
+        assert isinstance(behavior, pyctor.types.BehaviorHandler), "The supervised behavior needs to implement the BehaviorHandler"
         return SuperviseBehaviorHandlerImpl(strategy=strategy, behavior=behavior)

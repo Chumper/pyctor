@@ -10,5 +10,7 @@ async def main() -> None:
 
         # Then send and receive data on 'client_stream', for example:
         await client_stream.send_all(b"GET / HTTP/1.0\r\n\r\n")
+
+
 if __name__ == "__main__":
     trio.run(main)

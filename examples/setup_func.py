@@ -35,7 +35,7 @@ async def parent_setup() -> AsyncGenerator[Behavior[str], None]:
         async def parent_handler(msg: str) -> Behavior[str]:
             print(f"parent behavior received: {msg}")
             # also send to child_ref
-            child_ref.send_nowait(msg)
+            child_ref.send(msg)
             return Behaviors.Same
 
         # yield root behavior
@@ -57,7 +57,7 @@ async def main() -> None:
     async with pyctor.open_nursery() as n:
         parent_ref = await n.spawn(parent_setup)
 
-        await parent_ref.send(f"Hi from the ActorSystem")
+        parent_ref.send(f"Hi from the ActorSystem")
 
         await trio.sleep(1)
         # stop the system, otherwise actors will stay alive forever

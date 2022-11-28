@@ -1,20 +1,7 @@
 from abc import ABC, abstractmethod
 from contextlib import _AsyncGeneratorContextManager
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Generic,
-    List,
-    Protocol,
-    Type,
-    TypeAlias,
-    TypeVar,
-    get_args,
-    overload,
-    runtime_checkable,
-)
+from typing import Any, Awaitable, Callable, Generic, List, Protocol, Type, TypeAlias, TypeVar, get_args, overload, runtime_checkable
 from uuid import uuid4
 
 T = TypeVar("T")
@@ -78,8 +65,7 @@ class Spawner(ABC):
     @abstractmethod
     async def spawn(
         self,
-        behavior: Behavior[T]
-        | Callable[[], _AsyncGeneratorContextManager[Behavior[T]]],
+        behavior: Behavior[T] | Callable[[], _AsyncGeneratorContextManager[Behavior[T]]],
         name: str = str(uuid4()),
     ) -> "Ref[T]":
         """
@@ -131,9 +117,6 @@ class BehaviorProcessor(Generic[T], ABC):
     async def behavior_task(self):
         ...
 
-    def ref(self) -> "Ref[T]":
-        ...
-
 
 class ReplyProtocol(Protocol[V]):
     """
@@ -153,7 +136,12 @@ class Ref(Generic[T], ABC):
     The ref is used to send messages to the Behavior.
     """
 
-    async def send(self, msg: T) -> None:
+    url: str
+    """
+    Contains the URL of this behavior
+    """
+
+    def send(self, msg: T) -> None:
         """
         TBD
         """
