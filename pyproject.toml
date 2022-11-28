@@ -9,6 +9,7 @@ license = "MIT"
 python = "^3.11"
 trio = "^0.22.0"
 exceptiongroup = "^1.0.0-rc.9"
+msgspec = "^0.9.1"
 
 [tool.poetry.dev-dependencies]
 black = {version = "^22.10.0", allow-prereleases = true}
