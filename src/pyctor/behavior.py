@@ -1,9 +1,10 @@
 from contextlib import _AsyncGeneratorContextManager
 from logging import getLogger
-from typing import Awaitable, Callable, Type
+from typing import Awaitable, Callable, Generic, Type
 
 import trio
 
+import pyctor._util
 import pyctor.ref
 import pyctor.signals
 import pyctor.types
@@ -35,23 +36,6 @@ class BehaviorHandlerImpl(pyctor.types.BehaviorHandler[pyctor.types.T], pyctor.t
         return await self._behavior(msg)
 
 
-class LoggingBehaviorHandlerImpl(pyctor.types.BehaviorHandler[pyctor.types.T], pyctor.types.Behavior[pyctor.types.T]):
-    """
-    Logs every message that goes through the behavior
-    """
-
-    _behavior: pyctor.types.BehaviorHandler[pyctor.types.T]
-
-    def __init__(self, behavior: pyctor.types.Behavior[pyctor.types.T]) -> None:
-        self._behavior = behavior  # type: ignore
-
-    async def handle(self, msg: pyctor.types.T) -> pyctor.types.Behavior[pyctor.types.T]:
-        logger.info(f"Start handling: %s", msg)
-        b = await self._behavior.handle(msg=msg)
-        logger.info(f"End handling: %s", msg)
-        return b
-
-
 class SuperviseBehaviorHandlerImpl(pyctor.types.BehaviorHandler[pyctor.types.T], pyctor.types.Behavior[pyctor.types.T]):
     """
     Will wrap a BehaviorHandler in a supervise strategy
@@ -76,16 +60,13 @@ class SuperviseBehaviorHandlerImpl(pyctor.types.BehaviorHandler[pyctor.types.T],
             return await self._strategy(e)
 
 
-class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor[pyctor.types.T]):
+class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor, Generic[pyctor.types.T]):
     _channel: trio.abc.ReceiveChannel[pyctor.types.T]
     _behavior: Callable[[], _AsyncGeneratorContextManager[pyctor.types.BehaviorHandler[pyctor.types.T]]]
 
     def __init__(
         self,
-        behavior: Callable[
-            [],
-            _AsyncGeneratorContextManager[pyctor.types.BehaviorHandler[pyctor.types.T]],
-        ],
+        behavior: Callable[[], _AsyncGeneratorContextManager[pyctor.types.BehaviorHandler[pyctor.types.T]]],
         channel: trio.abc.ReceiveChannel[pyctor.types.T],
     ) -> None:
         super().__init__()
@@ -112,13 +93,15 @@ class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor[pyctor.types.T]):
                             case Behaviors.Same:
                                 pass
                             case Behaviors.Stop:
-                                await self.stop()
+                                await self._channel.aclose()
+                                run = False
                             case Behaviors.Restart:
                                 # restart the behavior
                                 break
                             case pyctor.types.BehaviorHandler():
                                 # TODO: Needs to be tested if that works
-                                raise Exception("Not implemented yet")
+                                behavior = pyctor._util.to_contextmanager(new_behavior)
+                                break
                 except trio.EndOfChannel:
                     # actor will be stopped
                     # catch exception to enable teardown of behavior
@@ -146,21 +129,11 @@ class Behaviors:
 
     Ignore: pyctor.signals.BehaviorSignal = pyctor.signals.BehaviorSignal(4)
     """
-    Indicates that the message was not handled and ignored. 
+    Indicates that the message was not handled and ignored. Will emit a warning
     """
 
     @staticmethod
     def receive(
-        func: Callable[[pyctor.types.T], Awaitable[pyctor.types.Behavior[pyctor.types.T]]],
-        type_check: Type[pyctor.types.T] | None = None,
-    ) -> pyctor.types.Behavior[pyctor.types.T]:
-        """
-        Defines a Behavior that handles custom messages as well as lifecycle signals.
-        """
-        return BehaviorHandlerImpl(behavior=func, type_check=type_check)
-
-    @staticmethod
-    def setup(
         func: Callable[[pyctor.types.T], Awaitable[pyctor.types.Behavior[pyctor.types.T]]],
         type_check: Type[pyctor.types.T] | None = None,
     ) -> pyctor.types.Behavior[pyctor.types.T]:

@@ -1,8 +1,7 @@
 import os
 import platform
 import threading
-from contextlib import _AsyncGeneratorContextManager
-from typing import Callable, Dict, overload
+from typing import Any, Dict
 
 import trio
 
@@ -17,12 +16,12 @@ class BehaviorRegistry:
     which behaviors are placed on this process.
     """
 
-    _registry: Dict[str, trio.abc.SendChannel[pyctor.types.T]] = {}
+    _registry: Dict[str, trio.abc.SendChannel[Any]] = {}
     _lock: threading.Lock = threading.Lock()
     _url_prefix: str
 
     def __init__(self) -> None:
-        # create registry name
+        # determine registry name
         self._url_prefix = f"pyctor://{platform.node()}/{os.getpid()}/"
 
     def register(self, name: str, channel: trio.abc.SendChannel[pyctor.types.T]) -> pyctor.types.Ref[pyctor.types.T]:

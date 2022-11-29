@@ -5,7 +5,7 @@ from pyctor import Behavior, Behaviors
 from pyctor.signals import BehaviorSignal
 
 """
-Simple functional example how to spawn an actor that will print messages
+Simple functional example how to spawn a supervised behavior that will print messages
 """
 
 

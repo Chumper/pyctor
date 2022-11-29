@@ -25,7 +25,8 @@ async def main() -> None:
         message_ref = await n.spawn(MessageBehavior().create())
 
         for i in range(10):
-            await message_ref.send(f"Hi from the Behavior Tree {i}")
+            # message order is not guaranteed!
+            message_ref.send(f"Hi from the Behavior Tree {i}")
 
         # not possible due to type safety, comment in to see mypy in action
         # message_ref.send(1)

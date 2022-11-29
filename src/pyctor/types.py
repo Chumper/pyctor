@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Generic, List, Protocol, Type, TypeAlias, TypeVar, get_args, overload, runtime_checkable
 from uuid import uuid4
 
+import trio
+
 T = TypeVar("T")
 U = TypeVar("U")
 V = TypeVar("V")
@@ -86,8 +88,6 @@ class Spawner(ABC):
     async def stop(self) -> None:
         """
         Will stop all children that have been spawned by this nursery.
-
-        If this is the top most behavior nursery, then it will tear down the whole behavior tree
         """
         ...
 
@@ -98,22 +98,7 @@ Type alias to define a function that can handle a generic message in the actor s
 """
 
 
-class BehaviorProcessor(Generic[T], ABC):
-    _name: str
-    _type_T: Any
-
-    def __init_subclass__(cls) -> None:
-        cls._type_T = get_args(cls.__orig_bases__[0])[0]  # type: ignore
-
-    async def handle(self, msg: T) -> None:
-        ...
-
-    def handle_nowait(self, msg: T) -> None:
-        ...
-
-    async def stop(self) -> None:
-        ...
-
+class BehaviorProcessor(Protocol):
     async def behavior_task(self):
         ...
 
@@ -147,21 +132,7 @@ class Ref(Generic[T], ABC):
         """
         ...
 
-    def send_nowait(self, msg: T) -> None:
-        """
-        TBD
-        """
-        ...
-
     async def stop(self) -> None:
-        """
-        EXPERIMENTAL: Not sure yet if this should stay.
-
-        Will send a system message to the behavior to stop the behavior and all of its children.
-        """
-        ...
-
-    def stop_nowait(self) -> None:
         """
         EXPERIMENTAL: Not sure yet if this should stay.
 
@@ -179,18 +150,12 @@ class Ref(Generic[T], ABC):
         """
         ...
 
-    def address(self) -> str:
-        """
-        Will return the address of this Behavior
-        """
-        ...
-
     def unsafe_cast(self, clazz: Type[U]) -> "Ref[U]":
         ...
 
 
 class BehaviorNursery(Spawner):
-    pass
+    _nursery: trio.Nursery
 
 
 class Dispatcher(ABC):

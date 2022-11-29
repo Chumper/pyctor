@@ -1,7 +1,6 @@
-from contextlib import _AsyncGeneratorContextManager, asynccontextmanager
+from contextlib import _AsyncGeneratorContextManager
 from logging import getLogger
-from types import FunctionType
-from typing import AsyncGenerator, Callable, List
+from typing import Callable, List
 from uuid import uuid4
 
 import trio
@@ -13,17 +12,17 @@ import pyctor.types
 logger = getLogger(__name__)
 
 
-class SpawnMixin(pyctor.types.Spawner):
-    _children: List[pyctor.types.Ref[None]] = []
+class SpawnerImpl(pyctor.types.Spawner):
+    _children: List[pyctor.types.Ref[None]]
 
     _nursery: trio.Nursery
 
     _dispatcher: pyctor.types.Dispatcher
 
     def __init__(self, nursery: trio.Nursery, dispatcher: pyctor.types.Dispatcher) -> None:
-        super().__init__()
         self._nursery = nursery
         self._dispatcher = dispatcher
+        self._children = []
 
     def children(self) -> List[pyctor.types.Ref[None]]:
         return self._children

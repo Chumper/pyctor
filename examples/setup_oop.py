@@ -1,8 +1,11 @@
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
 import trio
 
 import pyctor
-from pyctor.behavior import Behavior, Behaviors, Context
-from pyctor.types import Actor, Address
+from pyctor.behavior import Behaviors
+from pyctor.types import Behavior, Ref
 
 """
 Simple oop example to show how to spawn an actor as part of the setup behavior.
@@ -10,50 +13,61 @@ Child actors have a very simple behavior with no state.
 """
 
 
-class ChildActor(Actor[str]):
-    async def on_message(self, msg: str) -> Behavior[str]:
-        print(f"child actor received: {msg}")
+class ChildBehavior:
+    async def handler(self, msg: str) -> Behavior[str]:
+        print(f"child behavior received: {msg}")
         return Behaviors.Same
 
     def create(self) -> Behavior[str]:
-        return Behaviors.receive_message(self.on_message)
+        return Behaviors.receive(self.handler)
 
 
-class ParentActor(Actor[str]):
-    _child: Address[str]
+class ParentBehavior:
+    _child: Ref[str]
 
-    async def on_message(self, msg: str) -> Behavior[str]:
-        print(f"root actor received: {msg}")
-        # also send to child_ref
-        await self._child.send(msg)
+    async def handler(self, msg: str) -> Behavior[str]:
+        print(f"parent behavior received: {msg}")
+        # also send to child
+        self._child.send(msg)
         return Behaviors.Same
 
-    async def setup(self, ctx: Context[str]) -> Behavior[str]:
-        print("Hi from root actor setup")
+    @asynccontextmanager
+    async def create(self) -> AsyncGenerator[Behavior[str], None]:
+        print("Hi from parent behavior setup")
+        async with pyctor.open_nursery() as n:
+            self._child = await n.spawn(ChildBehavior().create(), name="parent/child")
 
-        # spawn child actors
-        self._child = await ctx.spawn(ChildActor().create())
+            # yield parent behavior
+            yield Behaviors.receive(self.handler)
 
-        # return root behavior
-        return Behaviors.receive_message(self.on_message)
+            # child is not yet terminated here
+            # self._child.send("Not yet terminated")
+            # await trio.sleep(1)
 
-    def create(self) -> Behavior[str]:
-        return Behaviors.setup(self.setup)
+            # stop the nursery, otherwise children will continue to run...
+            # Be a responsible parent!
+            await n.stop()
+
+        # teardown
+        print("Hi from parent behavior teardown")
 
 
 async def main() -> None:
-    print("Actor System is starting up")
+    print("Behavior Tree is starting up")
 
-    async with pyctor.root_behavior(ParentActor().create()) as asystem:
-        await asystem.root().send(f"Hi from the ActorSystem")
+    async with pyctor.open_nursery() as n:
+        parent_ref = await n.spawn(ParentBehavior().create)
+        parent_ref.send(f"Hi from the Behavior Tree")
 
         # not possible due to type safety, comment in to see mypy in action
-        # asystem.root().send(1)
-        # asystem.root().send(True)
+        # parent_ref.send(1)
+        # parent_ref.send(True)
 
-        # stop the system, otherwise actors will stay alive forever
-        await asystem.stop()
-    print("Actor System was shut down")
+        await trio.sleep(1)
+
+        # stop the nursery, otherwise behaviors will stay alive forever
+        await n.stop()
+    print("Behavior Tree was shut down")
 
 
 if __name__ == "__main__":

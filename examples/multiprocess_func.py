@@ -1,10 +1,12 @@
 import os
+from multiprocessing import cpu_count
+from typing import List
 
 import trio
 
 import pyctor
 from pyctor.behavior import Behaviors
-from pyctor.types import Behavior, BehaviorNurseryOptions
+from pyctor.types import Behavior, Ref
 
 """
 Simple functional example how to spawn a behavior on multiple cores
@@ -20,16 +22,16 @@ async def main() -> None:
     print("behavior tree is starting up")
     message_behavior = Behaviors.receive(message_handler)
 
+    children: List[Ref[str]] = []
+
     async with pyctor.open_nursery() as n:
-        # spawn the behavior
-        message_ref = await n.spawn(message_behavior)
+        # spawn the behaviors
+        for i in range(cpu_count()):
+            children.append(await n.spawn(message_behavior))
 
-        for i in range(10):
-            message_ref.send_nowait(f"Hi from the ActorSystem {i}")
-
-        # not possible due to type safety, comment in to see mypy in action
-        # await message_ref.send(1)
-        # await message_ref.send(True)
+        for c in children:
+            c.send(f"Hi from the behavior tree: 1")
+            c.send(f"Hi from the behavior tree: 2")
 
         await trio.sleep(1)
         # stop the system, otherwise behaviors will stay alive forever
