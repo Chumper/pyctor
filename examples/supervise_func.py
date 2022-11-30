@@ -2,7 +2,7 @@ import trio
 
 import pyctor
 from pyctor import Behavior, Behaviors
-from pyctor.signals import BehaviorSignal
+from pyctor.types import BehaviorSignal
 
 """
 Simple functional example how to spawn a supervised behavior that will print messages
@@ -34,13 +34,14 @@ async def main() -> None:
     async with pyctor.open_nursery() as n:
         ref = await n.spawn(supervise_behavior)
 
-        await ref.send(f"Hi from the ActorSystem")
-        await ref.send(f"crash")
-        await ref.send(f"Hi from the ActorSystem")
+        ref.send(f"Hi from the ActorSystem")
+        ref.send(f"crash")
+        ref.send(f"Hi from the ActorSystem")
 
         # not possible due to type safety, comment in to see mypy in action
         # ref.send(1)
         # ref.send(True)
+        await trio.sleep(1)
 
         # stop the system, otherwise actors will stay alive forever
         await n.stop()

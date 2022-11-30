@@ -1,7 +1,7 @@
 import trio
 
 import pyctor
-from pyctor.behavior import Behaviors
+from pyctor.behaviors import Behaviors
 from pyctor.types import Behavior
 
 """

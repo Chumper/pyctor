@@ -5,7 +5,7 @@ import pyctor.types
 
 
 @dataclass
-class BehaviorSignal(pyctor.types.Behavior[Any]):
+class BehaviorSignalImpl(pyctor.types.BehaviorSignal):
     """
     A class to house all BehaviorSignal that can be returned by a Behavior
     """

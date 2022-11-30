@@ -1,7 +1,7 @@
 import trio
 
 import pyctor
-from pyctor.behavior import Behaviors
+from pyctor.behaviors import Behaviors
 from pyctor.types import Behavior
 
 """
@@ -27,10 +27,12 @@ async def main() -> None:
             message_ref.send(f"Hi from the Behavior Tree {i}")
 
         # not possible due to type safety, comment in to see mypy in action
-        # await message_ref.send(1)
-        # await message_ref.send(True)
+        # message_ref.send(1)
+        # message_ref.send(True)
 
+        # sleep a bit, otherwise the behavior tree is shut down
         await trio.sleep(1)
+
         # stop the system, otherwise behaviors will stay alive forever
         await n.stop()
     print("behavior tree was shut down")

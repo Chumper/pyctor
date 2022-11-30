@@ -33,12 +33,11 @@ class SpawnerImpl(pyctor.types.Spawner):
 
     async def spawn(
         self,
-        behavior: Callable[[], _AsyncGeneratorContextManager[pyctor.types.Behavior[pyctor.types.T]]] | pyctor.types.Behavior[pyctor.types.T],
+        behavior: pyctor.types.BehaviorGenerator[pyctor.types.T],
         name: str = str(uuid4()),
     ) -> pyctor.types.Ref[pyctor.types.T]:
 
-        impl = pyctor._util.to_contextmanager(behavior)
-        ref = await self._dispatcher.dispatch(behavior=impl, name=name)
+        ref = await self._dispatcher.dispatch(behavior=behavior, name=name)
 
         # append to array
         self._children.append(ref)  # type: ignore

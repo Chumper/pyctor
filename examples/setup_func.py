@@ -1,11 +1,10 @@
-from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import trio
 
 import pyctor
-from pyctor.behavior import Behaviors
-from pyctor.types import Behavior
+from pyctor.behaviors import Behaviors
+from pyctor.types import Behavior, BehaviorGenerator, BehaviorHandler, BehaviorSetup
 
 """
 Simple functional example to show how to spawn a behavior with setup and teardown.
@@ -18,11 +17,7 @@ async def child_handler(msg: str) -> Behavior[str]:
     return Behaviors.Same
 
 
-# If a setup and/or teardown method is required, then an AsyncGenerator needs to be provided.
-# For that the annotation @asynccontextmanager is useful to not implement the whole interface.
-# The behavior is then yielded. The system now handles setup and teardown correctly.
-@asynccontextmanager
-async def parent_setup() -> AsyncGenerator[Behavior[str], None]:
+async def parent_setup() -> BehaviorSetup[str]:
     # setup
     print("Hi from parent behavior setup")
 
@@ -60,7 +55,7 @@ async def main() -> None:
     print("behavior tree is starting up")
 
     async with pyctor.open_nursery() as n:
-        parent_ref = await n.spawn(parent_setup, name="parent")
+        parent_ref = await n.spawn(Behaviors.setup(parent_setup), name="parent")
 
         parent_ref.send(f"Hi from the ActorSystem")
 

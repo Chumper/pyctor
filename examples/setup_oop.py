@@ -31,7 +31,6 @@ class ParentBehavior:
         self._child.send(msg)
         return Behaviors.Same
 
-    @asynccontextmanager
     async def create(self) -> AsyncGenerator[Behavior[str], None]:
         print("Hi from parent behavior setup")
         async with pyctor.open_nursery() as n:
