@@ -23,7 +23,7 @@ class SingleProcessDispatcher(pyctor.types.Dispatcher):
 
     async def dispatch(
         self,
-        behavior: pyctor.types.BehaviorGenerator[pyctor.types.T],
+        behavior: pyctor.types.BehaviorGeneratorFunction[pyctor.types.T],
         name: str,
     ) -> pyctor.types.Ref[pyctor.types.T]:
         # define channels

@@ -33,7 +33,7 @@ class SpawnerImpl(pyctor.types.Spawner):
 
     async def spawn(
         self,
-        behavior: pyctor.types.BehaviorGenerator[pyctor.types.T],
+        behavior: pyctor.types.BehaviorGeneratorFunction[pyctor.types.T],
         name: str = str(uuid4()),
     ) -> pyctor.types.Ref[pyctor.types.T]:
 

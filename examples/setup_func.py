@@ -1,10 +1,9 @@
-from typing import AsyncGenerator
 
 import trio
 
 import pyctor
 from pyctor.behaviors import Behaviors
-from pyctor.types import Behavior, BehaviorGenerator, BehaviorHandler, BehaviorSetup
+from pyctor.types import Behavior, BehaviorSetup
 
 """
 Simple functional example to show how to spawn a behavior with setup and teardown.

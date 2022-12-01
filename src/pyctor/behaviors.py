@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Awaitable, Callable, Type
+from types import FunctionType
+from typing import AsyncContextManager, AsyncGenerator, Awaitable, Callable, Type
 
 import pyctor._util
 import pyctor.behavior
@@ -36,6 +37,7 @@ class Behaviors:
         func: pyctor.types.BehaviorFunction[pyctor.types.T],
         type_check: Type[pyctor.types.T] | None = None,
     ) -> pyctor.types.BehaviorGeneratorFunction[pyctor.types.T]:
+        assert isinstance(func, FunctionType) # we can only check the top most type
         @asynccontextmanager
         async def f() -> AsyncGenerator[pyctor.types.BehaviorHandler[pyctor.types.T], None]:
             yield pyctor.behavior.BehaviorHandlerImpl(behavior=func, type_check=type_check)
@@ -49,7 +51,9 @@ class Behaviors:
         async def f() -> AsyncGenerator[pyctor.types.BehaviorHandler[pyctor.types.T], None]:
             # hacky hack, not sure if correct
             async for f in func():
+                assert isinstance(f, AsyncContextManager) # we can only check the top most type
                 async with f as t:
+                    assert isinstance(t, pyctor.types.BehaviorHandler) # we can only check the top most type
                     yield t
     
         return f
@@ -63,6 +67,7 @@ class Behaviors:
         @asynccontextmanager
         async def f() -> AsyncGenerator[pyctor.types.BehaviorHandler[pyctor.types.T], None]:
             async with behavior() as f:
+                assert isinstance(f, pyctor.types.BehaviorHandler) # we can only check the top most type
                 yield pyctor.behavior.SuperviseBehaviorHandlerImpl(strategy=strategy, behavior=f)
         
         return f

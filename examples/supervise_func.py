@@ -2,11 +2,15 @@ import trio
 
 import pyctor
 from pyctor import Behavior, Behaviors
-from pyctor.types import BehaviorSignal
+from pyctor.types import BehaviorSetup, BehaviorSignal
 
 """
 Simple functional example how to spawn a supervised behavior that will print messages
 """
+
+async def setup() -> BehaviorSetup[str]:
+    print("Startup")
+    yield Behaviors.receive(root_handler)
 
 
 async def root_handler(msg: str) -> Behavior[str]:
@@ -28,8 +32,8 @@ async def exception_handler(error: Exception) -> BehaviorSignal:
 
 async def main() -> None:
     print("Actor System is starting up")
-    root_behavior = Behaviors.receive(root_handler)
-    supervise_behavior = Behaviors.supervise(exception_handler, root_behavior)
+    my_behavior = Behaviors.setup(setup)
+    supervise_behavior = Behaviors.supervise(exception_handler, my_behavior)
 
     async with pyctor.open_nursery() as n:
         ref = await n.spawn(supervise_behavior)

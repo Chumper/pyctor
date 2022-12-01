@@ -47,7 +47,7 @@ BehaviorFunction: TypeAlias = Callable[[T], Awaitable[Behavior[T]]]
 Type alias to define a function that can handle a generic message and returns a Behavior 
 """
 
-BehaviorSetup: TypeAlias = AsyncGenerator[BehaviorGenerator[T], None]
+BehaviorSetup: TypeAlias = AsyncGenerator[BehaviorGeneratorFunction[T], None]
 
 class Spawner(ABC):
     """
@@ -150,7 +150,7 @@ class Dispatcher(ABC):
 
     async def dispatch(
         self,
-        behavior: BehaviorGenerator[T],
+        behavior: BehaviorGeneratorFunction[T],
         name: str,
     ) -> Ref[T]:
         ...

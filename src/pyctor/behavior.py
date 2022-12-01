@@ -1,5 +1,6 @@
 from contextlib import _AsyncGeneratorContextManager
 from logging import getLogger
+from types import FunctionType
 from typing import AsyncContextManager, Awaitable, Callable, Generic, Type
 
 import trio
@@ -73,6 +74,7 @@ class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor, Generic[pyctor.types
         super().__init__()
         self._channel = channel
         self._behavior = behavior
+        assert isinstance(self._behavior, FunctionType)
 
     async def behavior_task(self) -> None:
         """
@@ -84,6 +86,7 @@ class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor, Generic[pyctor.types
         run = True
         while run:
             async with behavior() as b:
+                assert isinstance(b, pyctor.types.BehaviorHandler)
                 try:
                     while True:
                         msg = await self._channel.receive()
@@ -99,11 +102,9 @@ class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor, Generic[pyctor.types
                             case pyctor.behaviors.Behaviors.Restart:
                                 # restart the behavior
                                 break
-                            case _:
-                                # TODO: Needs to be tested if that works
-                                pyctor._util.is_generator(new_behavior)
-                                # behavior = pyctor._util.to_contextmanager(new_behavior)
-                                raise Exception("Not implemented yet")
+                            case FunctionType():
+                                # trust is our asserts here...
+                                behavior = new_behavior
                                 break
                 except trio.EndOfChannel:
                     # actor will be stopped
