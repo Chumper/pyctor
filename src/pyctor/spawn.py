@@ -38,7 +38,6 @@ class SpawnerImpl(pyctor.types.Spawner):
     ) -> pyctor.types.Ref[pyctor.types.T]:
 
         ref = await self._dispatcher.dispatch(behavior=behavior, name=name)
-
         # append to array
         self._children.append(ref)  # type: ignore
         # return the ref

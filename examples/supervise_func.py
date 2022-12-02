@@ -8,6 +8,7 @@ from pyctor.types import BehaviorSetup, BehaviorSignal
 Simple functional example how to spawn a supervised behavior that will print messages
 """
 
+
 async def setup() -> BehaviorSetup[str]:
     print("Startup")
     yield Behaviors.receive(root_handler)

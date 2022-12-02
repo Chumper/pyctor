@@ -1,11 +1,15 @@
 from contextlib import asynccontextmanager
-from types import FunctionType
-from typing import AsyncContextManager, AsyncGenerator, Awaitable, Callable, Type
+from logging import getLogger
+from typing import AsyncGenerator, Awaitable, Callable, Type
 
 import pyctor._util
 import pyctor.behavior
+import pyctor.behavior.impl
+import pyctor.behavior.supervise
 import pyctor.signals
 import pyctor.types
+
+logger = getLogger(__name__)
 
 
 class Behaviors:
@@ -37,25 +41,40 @@ class Behaviors:
         func: pyctor.types.BehaviorFunction[pyctor.types.T],
         type_check: Type[pyctor.types.T] | None = None,
     ) -> pyctor.types.BehaviorGeneratorFunction[pyctor.types.T]:
-        assert isinstance(func, FunctionType) # we can only check the top most type
+        # if not isinstance(func, FunctionType):
+        #     logger.error(f"Behaviors.receive() was not provided a BehaviorFunction[T]): {type(func)}")
+        #     raise TypeError(func)
+
         @asynccontextmanager
-        async def f() -> AsyncGenerator[pyctor.types.BehaviorHandler[pyctor.types.T], None]:
-            yield pyctor.behavior.BehaviorHandlerImpl(behavior=func, type_check=type_check)
+        async def f(c: pyctor.types.Context[pyctor.types.T]) -> AsyncGenerator[pyctor.types.BehaviorHandler[pyctor.types.T], None]:
+            yield pyctor.behavior.impl.BehaviorHandlerImpl(behavior=func, type_check=type_check)
+
         return f
-    
+
     @staticmethod
     def setup(
-        func: Callable[[], pyctor.types.BehaviorSetup[pyctor.types.T]],
+        func: Callable[[pyctor.types.Context[pyctor.types.T]], pyctor.types.BehaviorSetup[pyctor.types.T]],
     ) -> pyctor.types.BehaviorGeneratorFunction[pyctor.types.T]:
+        # if not isinstance(func, FunctionType):
+        #     logger.error(f"Behaviors.setup() was not provided () -> BehaviorSetup[T]): {type(func)}")
+        #     raise TypeError(func)
+
         @asynccontextmanager
-        async def f() -> AsyncGenerator[pyctor.types.BehaviorHandler[pyctor.types.T], None]:
-            # hacky hack, not sure if correct
-            async for f in func():
-                assert isinstance(f, AsyncContextManager) # we can only check the top most type
-                async with f as t:
-                    assert isinstance(t, pyctor.types.BehaviorHandler) # we can only check the top most type
+        async def f(c: pyctor.types.Context[pyctor.types.T]) -> AsyncGenerator[pyctor.types.BehaviorHandler[pyctor.types.T], None]:
+            async for f in func(c):
+                #     if not isinstance(f, FunctionType):
+                #         logger.error(f"Behaviors.setup() was not provided () -> BehaviorSetup[T]): {type(f)}")
+                #         raise TypeError(f)
+                m = f(c)
+                # if not isinstance(m, AsyncContextManager):
+                #     logger.error(f"Behaviors.setup() was not provided () -> BehaviorSetup[T]): {type(m)}")
+                #     raise TypeError(m)
+                async with m as t:
+                    # if not isinstance(t, pyctor.types.BehaviorHandler):
+                    #     logger.error(f"Behaviors.setup() was not provided () -> BehaviorSetup[T]): {type(t)}")
+                    #     raise TypeError(t)
                     yield t
-    
+
         return f
 
     @staticmethod
@@ -63,11 +82,12 @@ class Behaviors:
         strategy: Callable[[Exception], Awaitable[pyctor.types.BehaviorSignal]],
         behavior: pyctor.types.BehaviorGeneratorFunction[pyctor.types.T],
     ) -> pyctor.types.BehaviorGeneratorFunction[pyctor.types.T]:
-        
         @asynccontextmanager
-        async def f() -> AsyncGenerator[pyctor.types.BehaviorHandler[pyctor.types.T], None]:
-            async with behavior() as f:
-                assert isinstance(f, pyctor.types.BehaviorHandler) # we can only check the top most type
-                yield pyctor.behavior.SuperviseBehaviorHandlerImpl(strategy=strategy, behavior=f)
-        
+        async def f(c: pyctor.types.Context[pyctor.types.T]) -> AsyncGenerator[pyctor.types.BehaviorHandler[pyctor.types.T], None]:
+            async with behavior(c) as f:
+                # if not isinstance(f, pyctor.types.BehaviorHandler):
+                #     logger.error(f"Behaviors.supervise() was not provided () -> BehaviorGenerator[T]): {type(f)}")
+                #     raise TypeError(f)
+                yield pyctor.behavior.supervise.SuperviseBehaviorHandlerImpl(strategy=strategy, behavior=f)
+
         return f

@@ -1,10 +1,7 @@
-from contextlib import _AsyncGeneratorContextManager
-from typing import Callable
-
 import trio
-import trio_typing
 
 import pyctor.behavior
+import pyctor.behavior.process
 import pyctor.system
 import pyctor.types
 
@@ -32,13 +29,17 @@ class SingleProcessDispatcher(pyctor.types.Dispatcher):
 
         # create a new memry channel
         send, receive = trio.open_memory_channel(0)
+        # register and get ref
+        ref = pyctor.system.registry.get().register(name=name, channel=send)
+
         # create the process
-        b = pyctor.behavior.BehaviorProcessorImpl[pyctor.types.T](behavior=behavior, channel=receive)
+        b = pyctor.behavior.process.BehaviorProcessorImpl[pyctor.types.T](behavior=behavior, channel=receive, self_ref=ref)
+
         # start in the nursery
         self._nursery.start_soon(b.behavior_task)
 
-        # register in the registry
-        return pyctor.system.registry.get().register(name=name, channel=send)
+        # return the ref
+        return ref
 
 
 # class MultiProcessDispatcher(pyctor.types.Dispatcher):

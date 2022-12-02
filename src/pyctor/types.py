@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import AsyncContextManager, AsyncGenerator, Awaitable, Callable, Generic, List, Protocol, Type, TypeAlias, TypeVar, runtime_checkable
 from uuid import uuid4
@@ -8,6 +9,7 @@ import trio
 T = TypeVar("T")
 U = TypeVar("U")
 V = TypeVar("V")
+
 
 @runtime_checkable
 class BehaviorHandler(Protocol[T]):
@@ -29,14 +31,28 @@ class BehaviorSignal(ABC):
     ...
 
 
+class Context(Generic[T]):
+    @asynccontextmanager
+    def with_stash(self, n: int) -> AsyncGenerator["Stash[T]", None]:
+        pass
+
+    @asynccontextmanager
+    def with_timer(self) -> AsyncGenerator["Timer", None]:
+        pass
+
+    @asynccontextmanager
+    def with_self(self) -> AsyncGenerator["Ref[T]", None]:
+        pass
+
+
 BehaviorGenerator: TypeAlias = AsyncContextManager[BehaviorHandler[T]]
 """
 A ContextManager that will yield a BehaviorHandler that can be used to handle messages
 """
 
-BehaviorGeneratorFunction: TypeAlias = Callable[[], BehaviorGenerator[T]]
+BehaviorGeneratorFunction: TypeAlias = Callable[[Context[T]], BehaviorGenerator[T]]
 
-Behavior: TypeAlias = Callable[[], BehaviorGenerator[T]] | BehaviorSignal
+Behavior: TypeAlias = Callable[[Context[T]], BehaviorGenerator[T]] | BehaviorSignal
 """
 The basic building block of everything.
 A Behavior defines how an actor will handle a message and will return a Behavior for the next message.
@@ -48,6 +64,7 @@ Type alias to define a function that can handle a generic message and returns a 
 """
 
 BehaviorSetup: TypeAlias = AsyncGenerator[BehaviorGeneratorFunction[T], None]
+
 
 class Spawner(ABC):
     """
@@ -159,3 +176,21 @@ class Dispatcher(ABC):
 @dataclass
 class BehaviorNurseryOptions:
     dispatcher: Dispatcher | None = None
+
+
+class Stash(Generic[T], ABC):
+    @abstractmethod
+    async def stash(self, msg: T) -> None:
+        ...
+
+    @abstractmethod
+    async def unstash(self, amount: int) -> List[T]:
+        ...
+
+    @abstractmethod
+    async def close(self) -> None:
+        ...
+
+
+class Timer:
+    pass

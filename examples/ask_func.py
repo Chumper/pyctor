@@ -4,7 +4,7 @@ from typing import Optional
 import trio
 
 import pyctor
-from pyctor.behavior import Behaviors
+from pyctor.behaviors import Behaviors
 from pyctor.types import Behavior, Ref
 
 """
@@ -27,7 +27,7 @@ class InvalidQuestion:
 async def message_handler(msg: Question) -> Behavior[Question]:
     print(f"Got a new question: {msg.question}")
 
-    await msg.reply_to.send("This is the reply to your question!")
+    msg.reply_to.send("This is the reply to your question!")
 
     return Behaviors.Same
 
