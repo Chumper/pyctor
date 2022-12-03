@@ -2,14 +2,14 @@ import trio
 
 import pyctor
 from pyctor import Behavior, Behaviors
-from pyctor.types import BehaviorSetup, BehaviorSignal
+from pyctor.types import BehaviorSetup, BehaviorSignal, Context
 
 """
 Simple functional example how to spawn a supervised behavior that will print messages
 """
 
 
-async def setup() -> BehaviorSetup[str]:
+async def setup(_: Context[str]) -> BehaviorSetup[str]:
     print("Startup")
     yield Behaviors.receive(root_handler)
 

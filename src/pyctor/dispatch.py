@@ -2,6 +2,7 @@ import trio
 
 import pyctor.behavior
 import pyctor.behavior.process
+import pyctor.context
 import pyctor.system
 import pyctor.types
 
@@ -33,14 +34,15 @@ class SingleProcessDispatcher(pyctor.types.Dispatcher):
         ref = pyctor.system.registry.get().register(name=name, channel=send)
 
         # create the process
-        b = pyctor.behavior.process.BehaviorProcessorImpl[pyctor.types.T](behavior=behavior, channel=receive, self_ref=ref)
+        b = pyctor.behavior.process.BehaviorProcessorImpl[pyctor.types.T](
+            behavior=behavior, channel=receive, context=pyctor.context.ContextImpl(ref)
+        )
 
         # start in the nursery
         self._nursery.start_soon(b.behavior_task)
 
         # return the ref
-        return ref
-
+        return ref            
 
 # class MultiProcessDispatcher(pyctor.types.Dispatcher):
 #     """

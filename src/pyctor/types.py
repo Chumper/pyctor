@@ -24,11 +24,11 @@ class BehaviorHandler(Protocol[T]):
         The returned Behavior is used to either setup the new Behavior for the next message
         or when one of the BehaviorSignals is given the state of the Behavior is adjusted.
         """
-        ...
+        ... # pragma: no cover
 
 
 class BehaviorSignal(ABC):
-    ...
+    ... # pragma: no cover
 
 
 class Context(Generic[T]):
@@ -76,13 +76,13 @@ class Spawner(ABC):
     async def spawn(
         self,
         behavior: BehaviorGeneratorFunction[T],
-        name: str = str(uuid4()),
+        name: str | None = None,
     ) -> "Ref[T]":
         """
         Will spawn the given Behavior in the context of the integrated class.
         In most cases will spawn a child actor in the context of another actor.
         """
-        ...
+        ... # pragma: no cover
 
     @abstractmethod
     def children(self) -> List["Ref[None]"]:
@@ -90,19 +90,19 @@ class Spawner(ABC):
         Returns a list of children, which means that those are
         behavior tasks that have been spawned by this Spawner
         """
-        ...
+        ... # pragma: no cover
 
     @abstractmethod
     async def stop(self) -> None:
         """
         Will stop all children that have been spawned by this nursery.
         """
-        ...
+        ... # pragma: no cover
 
 
 class BehaviorProcessor(Protocol):
     async def behavior_task(self):
-        ...
+        ... # pragma: no cover
 
 
 class ReplyProtocol(Protocol[V]):
@@ -132,7 +132,7 @@ class Ref(Generic[T], ABC):
         """
         TBD
         """
-        ...
+        ... # pragma: no cover
 
     async def stop(self) -> None:
         """
@@ -140,7 +140,7 @@ class Ref(Generic[T], ABC):
 
         Will send a system message to the behavior to stop the behavior and all of its children.
         """
-        ...
+        ... # pragma: no cover
 
     async def ask(self, f: Callable[["Ref[V]"], ReplyProtocol[V]]) -> V:
         """
@@ -150,10 +150,10 @@ class Ref(Generic[T], ABC):
         Internally this will spawn a ResponseBehavior and sets the reply_to to this newly spawned behavior.
         Supports trio standard cancelation scope and should be used to place a timeout on the request.
         """
-        ...
+        ... # pragma: no cover
 
     def unsafe_cast(self, clazz: Type[U]) -> "Ref[U]":
-        ...
+        ... # pragma: no cover
 
 
 class BehaviorNursery(Spawner):
@@ -170,7 +170,7 @@ class Dispatcher(ABC):
         behavior: BehaviorGeneratorFunction[T],
         name: str,
     ) -> Ref[T]:
-        ...
+        ... # pragma: no cover
 
 
 @dataclass
@@ -181,15 +181,15 @@ class BehaviorNurseryOptions:
 class Stash(Generic[T], ABC):
     @abstractmethod
     async def stash(self, msg: T) -> None:
-        ...
+        ... # pragma: no cover
 
     @abstractmethod
     async def unstash(self, amount: int) -> List[T]:
-        ...
+        ... # pragma: no cover
 
     @abstractmethod
     async def close(self) -> None:
-        ...
+        ... # pragma: no cover
 
 
 class Timer:

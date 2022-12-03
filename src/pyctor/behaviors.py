@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from logging import getLogger
-from typing import AsyncGenerator, Awaitable, Callable, Type
+from types import FunctionType
+from typing import AsyncContextManager, AsyncGenerator, Awaitable, Callable, Type
 
 import pyctor._util
 import pyctor.behavior
@@ -41,9 +42,9 @@ class Behaviors:
         func: pyctor.types.BehaviorFunction[pyctor.types.T],
         type_check: Type[pyctor.types.T] | None = None,
     ) -> pyctor.types.BehaviorGeneratorFunction[pyctor.types.T]:
-        # if not isinstance(func, FunctionType):
-        #     logger.error(f"Behaviors.receive() was not provided a BehaviorFunction[T]): {type(func)}")
-        #     raise TypeError(func)
+        if not isinstance(func, FunctionType):
+            logger.error(f"Behaviors.receive() was not provided a BehaviorFunction[T]): {type(func)}")
+            raise TypeError(func)
 
         @asynccontextmanager
         async def f(c: pyctor.types.Context[pyctor.types.T]) -> AsyncGenerator[pyctor.types.BehaviorHandler[pyctor.types.T], None]:
@@ -55,16 +56,16 @@ class Behaviors:
     def setup(
         func: Callable[[pyctor.types.Context[pyctor.types.T]], pyctor.types.BehaviorSetup[pyctor.types.T]],
     ) -> pyctor.types.BehaviorGeneratorFunction[pyctor.types.T]:
-        # if not isinstance(func, FunctionType):
+        # if not isinstance(func, Callable[[pyctor.types.Context[pyctor.types.T]], pyctor.types.BehaviorSetup[pyctor.types.T]]):
         #     logger.error(f"Behaviors.setup() was not provided () -> BehaviorSetup[T]): {type(func)}")
         #     raise TypeError(func)
 
         @asynccontextmanager
         async def f(c: pyctor.types.Context[pyctor.types.T]) -> AsyncGenerator[pyctor.types.BehaviorHandler[pyctor.types.T], None]:
             async for f in func(c):
-                #     if not isinstance(f, FunctionType):
-                #         logger.error(f"Behaviors.setup() was not provided () -> BehaviorSetup[T]): {type(f)}")
-                #         raise TypeError(f)
+                    # if not isinstance(f, Callable[[str],None]):
+                    #     logger.error(f"Behaviors.setup() was not provided () -> BehaviorSetup[T]): {type(f)}")
+                    #     raise TypeError(f)
                 m = f(c)
                 # if not isinstance(m, AsyncContextManager):
                 #     logger.error(f"Behaviors.setup() was not provided () -> BehaviorSetup[T]): {type(m)}")

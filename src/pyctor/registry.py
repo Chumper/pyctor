@@ -8,6 +8,9 @@ import trio
 import pyctor.ref
 import pyctor.types
 
+# TODO: Make this a context manager where you can register a channel and get a ref back
+# that is only valid as long as the context is open.
+
 
 class BehaviorRegistry:
     """
@@ -35,8 +38,3 @@ class BehaviorRegistry:
         if ref.url in self._registry:
             return self._registry[ref.url]
         raise ValueError(f"No Behavior with ref '{ref}'")
-
-    def get_name(self, name: str) -> trio.abc.SendChannel[pyctor.types.T]:
-        if f"{self._url_prefix}{name}" in self._registry:
-            return self._registry[name]
-        raise ValueError(f"No Behavior with name '{name}'")

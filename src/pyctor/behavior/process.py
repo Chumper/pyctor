@@ -16,18 +16,18 @@ logger = getLogger(__name__)
 class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor, Generic[pyctor.types.T]):
     _channel: trio.abc.ReceiveChannel[pyctor.types.T]
     _behavior: pyctor.types.BehaviorGeneratorFunction[pyctor.types.T]
-    _self_ref: pyctor.types.Ref[pyctor.types.T]
+    _context: pyctor.types.Context[pyctor.types.T]
 
     def __init__(
         self,
         behavior: pyctor.types.BehaviorGeneratorFunction[pyctor.types.T],
         channel: trio.abc.ReceiveChannel[pyctor.types.T],
-        self_ref: pyctor.types.Ref[pyctor.types.T],
+        context: pyctor.types.Context[pyctor.types.T],
     ) -> None:
         super().__init__()
         self._channel = channel
         self._behavior = behavior
-        self._self_ref = self_ref
+        self._context = context
 
     async def behavior_task(self) -> None:
         """
@@ -39,11 +39,11 @@ class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor, Generic[pyctor.types
         run = True
         while run:
             try:
-                if not isinstance(behavior, FunctionType):
+                if not isinstance(behavior, FunctionType): # pragma: no cover
                     logger.error(f"The provided behavior has an incorrect type: {type(behavior)}")
                     raise TypeError(behavior)
-                async with behavior(self._self_ref) as b:
-                    if not isinstance(b, pyctor.types.BehaviorHandler):
+                async with behavior(self._context) as b:
+                    if not isinstance(b, pyctor.types.BehaviorHandler): # pragma: no cover
                         logger.error(f"The provided behavior has an incorrect type: {type(b)}")
                         raise TypeError(b)
                     try:
@@ -66,7 +66,7 @@ class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor, Generic[pyctor.types
                                     # trust our asserts here...
                                     behavior = new_behavior
                                     break
-                    except trio.EndOfChannel | trio.ClosedResourceError:
+                    except (trio.EndOfChannel, trio.ClosedResourceError):
                         # Channel has been closed, behavior should be stopped
                         # catch exception to enable teardown of behavior
                         run = False

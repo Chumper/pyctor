@@ -4,6 +4,7 @@ from typing import Callable, Type, cast
 import trio
 
 import pyctor.behavior
+import pyctor.behaviors
 import pyctor.signals
 import pyctor.system
 import pyctor.types
@@ -41,20 +42,22 @@ class LocalRef(pyctor.types.Ref[pyctor.types.T]):
         ],
     ) -> pyctor.types.V:
         # spawn a new behavior that takes a V as message and then immediately stops
-        # response: pyctor.types.V
-        # async with pyctor.system.open_nursery() as n:
-        #     # spawn behavior
-        #     async def receive_behavior(
-        #         msg: pyctor.types.V,
-        #     ) -> pyctor.types.Behavior[pyctor.types.V]:
-        #         nonlocal response
-        #         response = msg
-        #         return pyctor.behavior.Behaviors.Stop
-
-        #     reply_ref = await n.spawn(pyctor.behavior.BehaviorHandlerImpl(behavior=receive_behavior))
-        #     await self.send(f(reply_ref))
-        # return response
-        pass
+        response: pyctor.types.V
+        # spawn behavior
+        async def receive_behavior(
+                msg: pyctor.types.V,
+            ) -> pyctor.types.Behavior[pyctor.types.V]:
+            nonlocal response
+            response = msg
+            return pyctor.behaviors.Behaviors.Stop
+        
+        async with pyctor.system.open_nursery() as n:
+            reply_ref = await n.spawn(pyctor.behaviors.Behaviors.receive(receive_behavior))
+            msg = f(reply_ref)
+            # python has no intersection type...
+            self.send(msg) # type: ignore
+        
+        return response  # type: ignore
 
     async def stop(self) -> None:
         # get channel from registry

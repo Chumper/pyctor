@@ -34,8 +34,11 @@ class SpawnerImpl(pyctor.types.Spawner):
     async def spawn(
         self,
         behavior: pyctor.types.BehaviorGeneratorFunction[pyctor.types.T],
-        name: str = str(uuid4()),
+        name: str | None = None
     ) -> pyctor.types.Ref[pyctor.types.T]:
+
+        if not name:
+            name = str(uuid4())
 
         ref = await self._dispatcher.dispatch(behavior=behavior, name=name)
         # append to array
