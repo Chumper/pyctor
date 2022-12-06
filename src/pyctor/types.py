@@ -1,19 +1,7 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import (
-    AsyncContextManager,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    Generic,
-    List,
-    Protocol,
-    Type,
-    TypeAlias,
-    TypeVar,
-    runtime_checkable,
-)
+from typing import AsyncContextManager, AsyncGenerator, Awaitable, Callable, Generic, List, Protocol, Type, TypeAlias, TypeVar, runtime_checkable
 from uuid import uuid4
 
 import trio
@@ -48,15 +36,15 @@ class Context(Generic[T]):
     def self(self) -> "Ref[T]":
         ...
 
-    @abstractmethod
-    @asynccontextmanager
-    def with_stash(self, n: int) -> AsyncGenerator["Stash[T]", None]:
-        ...
+    # @abstractmethod
+    # @asynccontextmanager
+    # def with_stash(self, n: int) -> AsyncGenerator["Stash[T]", None]:
+    #     ...
 
-    @abstractmethod
-    @asynccontextmanager
-    def with_timer(self) -> AsyncGenerator["Timer", None]:
-        ...
+    # @abstractmethod
+    # @asynccontextmanager
+    # def with_timer(self) -> AsyncGenerator["Timer", None]:
+    #     ...
 
 
 BehaviorGenerator: TypeAlias = AsyncContextManager[BehaviorHandler[T]]

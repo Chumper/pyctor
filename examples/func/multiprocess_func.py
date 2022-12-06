@@ -23,7 +23,7 @@ async def main() -> None:
 
     children: List[Ref[str]] = []
 
-    async with pyctor.open_multicore_nursery() as n:
+    async with pyctor.open_multiprocess_nursery() as n:
         # spawn the behaviors
         for i in range(cpu_count()):
             children.append(await n.spawn(message_behavior))

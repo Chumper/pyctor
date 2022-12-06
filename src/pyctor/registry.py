@@ -27,18 +27,14 @@ class BehaviorRegistry:
         # determine registry name
         self._url_prefix = f"pyctor://{platform.node()}/{os.getpid()}/"
 
-    def register(
-        self, name: str, channel: trio.abc.SendChannel[pyctor.types.T]
-    ) -> pyctor.types.Ref[pyctor.types.T]:
+    def register(self, name: str, channel: trio.abc.SendChannel[pyctor.types.T]) -> pyctor.types.Ref[pyctor.types.T]:
         with self._lock:
             if name in self._registry:
                 raise ValueError(f"Ref {name} is already registered")
             self._registry[self._url_prefix + name] = channel
         return pyctor.ref.local.LocalRef(self._url_prefix + name)
 
-    def get(
-        self, ref: pyctor.types.Ref[pyctor.types.T]
-    ) -> trio.abc.SendChannel[pyctor.types.T]:
+    def get(self, ref: pyctor.types.Ref[pyctor.types.T]) -> trio.abc.SendChannel[pyctor.types.T]:
         if ref.url in self._registry:
             return self._registry[ref.url]
         raise ValueError(f"No Behavior with ref '{ref}'")
