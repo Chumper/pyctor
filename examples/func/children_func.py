@@ -35,6 +35,7 @@ async def parent_setup(ctx: Context[str]) -> BehaviorSetup[str]:
         # Be a responsible parent!
         await n.stop()
 
+
 async def main() -> None:
     setup_behavior = Behaviors.setup(parent_setup)
     async with pyctor.open_nursery() as n:
@@ -45,6 +46,7 @@ async def main() -> None:
         await trio.sleep(1)
         # stop the system, otherwise actors will stay alive forever
         await n.stop()
+
 
 if __name__ == "__main__":
     trio.run(main)

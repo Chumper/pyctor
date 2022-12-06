@@ -2,49 +2,25 @@ import trio
 
 import pyctor
 from pyctor.behaviors import Behaviors
-from pyctor.types import Behavior, Ref
-
-"""
-Simple functional example how to send message to its own ref
-"""
+from pyctor.types import Behavior, BehaviorSetup, Context
 
 
-async def message_handler(msg: str) -> Behavior[str]:
+async def setup(ctx: Context[str]) -> BehaviorSetup[str]:
+    async def setup_handler(msg: str) -> Behavior[str]:
+        print(f"{ctx.self().url} received: {msg}")
+        # also send to child_ref
+        return Behaviors.Stop
 
-    print(f"I am saying: {msg}")
-    return Behaviors.Same
-
-
-# def self_handler(ref: Ref[str]):
-#     print("I got my ref!")
-#     async def message_handler(msg: str) -> Behavior[str]:
-#         if msg.startswith("remember:"):
-#             # send message to self
-#             print(f"I try to remember: {msg}")
-#             ref.send(f"I remember: {msg}")
-#             return Behaviors.Same
-
-#         print(f"I am saying: {msg}")
-#         return Behaviors.Same
-#     return Behaviors.receive(message_handler)
+    # yield root behavior
+    yield Behaviors.receive(setup_handler)
 
 
 async def main() -> None:
-    print("behavior tree is starting up")
-    ref_behavior = Behaviors.with_self(self_handler)
-
+    setup_behavior = Behaviors.setup(setup)
     async with pyctor.open_nursery() as n:
-        # spawn the behavior
-        message_ref = await n.spawn(ref_behavior)
-
-        message_ref.send(f"It is pretty cold outside")
-        message_ref.send(f"I will go outside")
-        message_ref.send(f"think: Don't forget your coat")
-
-        await trio.sleep(1)
-        # stop the system, otherwise behaviors will stay alive forever
-        await n.stop()
-    print("behavior tree was shut down")
+        for i in range(3):
+            setup_ref = await n.spawn(setup_behavior)
+            setup_ref.send(f"Hi from the outside the behavior")
 
 
 if __name__ == "__main__":

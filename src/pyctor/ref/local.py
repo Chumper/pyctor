@@ -17,7 +17,12 @@ class LocalRef(pyctor.types.Ref[pyctor.types.T]):
         super().__init__()
         self.url = url
 
-    async def _internal_send(self, channel: trio.abc.SendChannel[pyctor.types.T], msg: pyctor.types.T, task_status=trio.TASK_STATUS_IGNORED) -> None:
+    async def _internal_send(
+        self,
+        channel: trio.abc.SendChannel[pyctor.types.T],
+        msg: pyctor.types.T,
+        task_status=trio.TASK_STATUS_IGNORED,
+    ) -> None:
         try:
             await channel.send(msg)
         except trio.ClosedResourceError:
@@ -45,18 +50,20 @@ class LocalRef(pyctor.types.Ref[pyctor.types.T]):
         response: pyctor.types.V
         # spawn behavior
         async def receive_behavior(
-                msg: pyctor.types.V,
-            ) -> pyctor.types.Behavior[pyctor.types.V]:
+            msg: pyctor.types.V,
+        ) -> pyctor.types.Behavior[pyctor.types.V]:
             nonlocal response
             response = msg
             return pyctor.behaviors.Behaviors.Stop
-        
+
         async with pyctor.system.open_nursery() as n:
-            reply_ref = await n.spawn(pyctor.behaviors.Behaviors.receive(receive_behavior))
+            reply_ref = await n.spawn(
+                pyctor.behaviors.Behaviors.receive(receive_behavior)
+            )
             msg = f(reply_ref)
             # python has no intersection type...
-            self.send(msg) # type: ignore
-        
+            self.send(msg)  # type: ignore
+
         return response  # type: ignore
 
     async def stop(self) -> None:
@@ -66,5 +73,7 @@ class LocalRef(pyctor.types.Ref[pyctor.types.T]):
         # close the sending channel
         await channel.aclose()
 
-    def unsafe_cast(self, clazz: Type[pyctor.types.U]) -> pyctor.types.Ref[pyctor.types.U]:
+    def unsafe_cast(
+        self, clazz: Type[pyctor.types.U]
+    ) -> pyctor.types.Ref[pyctor.types.U]:
         return cast(pyctor.types.Ref[pyctor.types.U], self)

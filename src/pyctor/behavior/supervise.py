@@ -26,7 +26,9 @@ class SuperviseBehaviorHandlerImpl(pyctor.types.BehaviorHandler[pyctor.types.T])
         self._strategy = strategy
         self._behavior = behavior
 
-    async def handle(self, msg: pyctor.types.T) -> pyctor.types.Behavior[pyctor.types.T]:
+    async def handle(
+        self, msg: pyctor.types.T
+    ) -> pyctor.types.Behavior[pyctor.types.T]:
         try:
             return await self._behavior.handle(msg)
         except Exception as e:

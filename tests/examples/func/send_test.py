@@ -4,6 +4,7 @@ import pyctor
 from pyctor.behaviors import Behaviors
 from pyctor.types import Behavior
 
+
 def test_send():
     counter = 0
 
@@ -11,7 +12,6 @@ def test_send():
         nonlocal counter
         counter += 1
         return Behaviors.Stop
-
 
     async def main() -> None:
         with trio.fail_after(1):

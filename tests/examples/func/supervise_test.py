@@ -4,6 +4,7 @@ import pyctor
 from pyctor import Behavior, Behaviors
 from pyctor.types import BehaviorSetup, BehaviorSignal, Context
 
+
 def test_supervise():
     counter = 0
 
@@ -16,7 +17,6 @@ def test_supervise():
         counter += 1
         return Behaviors.Same
 
-
     async def exception_handler(error: Exception) -> BehaviorSignal:
         nonlocal counter
         match error:
@@ -27,14 +27,13 @@ def test_supervise():
                 counter += 3
                 return Behaviors.Stop
 
-
     async def main() -> None:
         with trio.fail_after(1):
             my_behavior = Behaviors.receive(handler)
             supervise_behavior = Behaviors.supervise(exception_handler, my_behavior)
             async with pyctor.open_nursery() as n:
                 ref = await n.spawn(supervise_behavior)
-                for i in [1,0,1,-1]:
+                for i in [1, 0, 1, -1]:
                     ref.send(i)
                     await trio.sleep(0)
 

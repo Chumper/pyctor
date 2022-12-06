@@ -1,7 +1,19 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import AsyncContextManager, AsyncGenerator, Awaitable, Callable, Generic, List, Protocol, Type, TypeAlias, TypeVar, runtime_checkable
+from typing import (
+    AsyncContextManager,
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    Generic,
+    List,
+    Protocol,
+    Type,
+    TypeAlias,
+    TypeVar,
+    runtime_checkable,
+)
 from uuid import uuid4
 
 import trio
@@ -24,25 +36,27 @@ class BehaviorHandler(Protocol[T]):
         The returned Behavior is used to either setup the new Behavior for the next message
         or when one of the BehaviorSignals is given the state of the Behavior is adjusted.
         """
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 class BehaviorSignal(ABC):
-    ... # pragma: no cover
+    ...  # pragma: no cover
 
 
 class Context(Generic[T]):
+    @abstractmethod
+    def self(self) -> "Ref[T]":
+        ...
+
+    @abstractmethod
     @asynccontextmanager
     def with_stash(self, n: int) -> AsyncGenerator["Stash[T]", None]:
-        pass
+        ...
 
+    @abstractmethod
     @asynccontextmanager
     def with_timer(self) -> AsyncGenerator["Timer", None]:
-        pass
-
-    @asynccontextmanager
-    def with_self(self) -> AsyncGenerator["Ref[T]", None]:
-        pass
+        ...
 
 
 BehaviorGenerator: TypeAlias = AsyncContextManager[BehaviorHandler[T]]
@@ -82,7 +96,7 @@ class Spawner(ABC):
         Will spawn the given Behavior in the context of the integrated class.
         In most cases will spawn a child actor in the context of another actor.
         """
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     @abstractmethod
     def children(self) -> List["Ref[None]"]:
@@ -90,19 +104,19 @@ class Spawner(ABC):
         Returns a list of children, which means that those are
         behavior tasks that have been spawned by this Spawner
         """
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     @abstractmethod
     async def stop(self) -> None:
         """
         Will stop all children that have been spawned by this nursery.
         """
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 class BehaviorProcessor(Protocol):
     async def behavior_task(self):
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 class ReplyProtocol(Protocol[V]):
@@ -132,7 +146,7 @@ class Ref(Generic[T], ABC):
         """
         TBD
         """
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     async def stop(self) -> None:
         """
@@ -140,7 +154,7 @@ class Ref(Generic[T], ABC):
 
         Will send a system message to the behavior to stop the behavior and all of its children.
         """
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     async def ask(self, f: Callable[["Ref[V]"], ReplyProtocol[V]]) -> V:
         """
@@ -150,10 +164,10 @@ class Ref(Generic[T], ABC):
         Internally this will spawn a ResponseBehavior and sets the reply_to to this newly spawned behavior.
         Supports trio standard cancelation scope and should be used to place a timeout on the request.
         """
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def unsafe_cast(self, clazz: Type[U]) -> "Ref[U]":
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 class BehaviorNursery(Spawner):
@@ -170,26 +184,26 @@ class Dispatcher(ABC):
         behavior: BehaviorGeneratorFunction[T],
         name: str,
     ) -> Ref[T]:
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 @dataclass
 class BehaviorNurseryOptions:
-    dispatcher: Dispatcher | None = None
+    dispatcher: Dispatcher
 
 
 class Stash(Generic[T], ABC):
     @abstractmethod
     async def stash(self, msg: T) -> None:
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     @abstractmethod
     async def unstash(self, amount: int) -> List[T]:
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     @abstractmethod
     async def close(self) -> None:
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 class Timer:

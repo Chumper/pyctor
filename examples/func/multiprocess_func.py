@@ -5,7 +5,7 @@ from typing import List
 import trio
 
 import pyctor
-from pyctor.behavior import Behaviors
+from pyctor.behaviors import Behaviors
 from pyctor.types import Behavior, Ref
 
 """
@@ -19,12 +19,11 @@ async def message_handler(msg: str) -> Behavior[str]:
 
 
 async def main() -> None:
-    print("behavior tree is starting up")
     message_behavior = Behaviors.receive(message_handler)
 
     children: List[Ref[str]] = []
 
-    async with pyctor.open_nursery() as n:
+    async with pyctor.open_multicore_nursery() as n:
         # spawn the behaviors
         for i in range(cpu_count()):
             children.append(await n.spawn(message_behavior))

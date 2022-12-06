@@ -7,6 +7,7 @@ import pyctor
 from pyctor.behaviors import Behaviors
 from pyctor.types import Behavior, Ref
 
+
 def test_ask():
     counter = 0
 
@@ -29,7 +30,9 @@ def test_ask():
             async with pyctor.open_nursery() as n:
                 message_ref = await n.spawn(message_behavior)
                 for i in range(5):
-                    answer = await message_ref.ask(lambda x: Increase(amount=i, reply_to=x))
+                    answer = await message_ref.ask(
+                        lambda x: Increase(amount=i, reply_to=x)
+                    )
                     counter += answer
 
     trio.run(main)

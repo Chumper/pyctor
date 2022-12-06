@@ -19,7 +19,9 @@ class SpawnerImpl(pyctor.types.Spawner):
 
     _dispatcher: pyctor.types.Dispatcher
 
-    def __init__(self, nursery: trio.Nursery, dispatcher: pyctor.types.Dispatcher) -> None:
+    def __init__(
+        self, nursery: trio.Nursery, dispatcher: pyctor.types.Dispatcher
+    ) -> None:
         self._nursery = nursery
         self._dispatcher = dispatcher
         self._children = []
@@ -34,7 +36,7 @@ class SpawnerImpl(pyctor.types.Spawner):
     async def spawn(
         self,
         behavior: pyctor.types.BehaviorGeneratorFunction[pyctor.types.T],
-        name: str | None = None
+        name: str | None = None,
     ) -> pyctor.types.Ref[pyctor.types.T]:
 
         if not name:

@@ -7,12 +7,15 @@ from pyctor.types import Behavior, BehaviorSetup, Context
 
 def test_setup():
     counter = 0
+
     async def setup(_: Context[str]) -> BehaviorSetup[str]:
         nonlocal counter
 
         counter += 1
+
         async def setup_handler(msg: str) -> Behavior[str]:
             return Behaviors.Stop
+
         yield Behaviors.receive(setup_handler)
 
         counter += 2

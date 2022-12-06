@@ -7,11 +7,11 @@ from pyctor.types import Behavior, BehaviorSetup, Context
 
 def test_children():
     counter = 0
+
     async def child_handler(msg: str) -> Behavior[str]:
         nonlocal counter
         counter += 2
         return Behaviors.Stop
-
 
     async def parent_setup(ctx: Context[str]) -> BehaviorSetup[str]:
         child_behavior = Behaviors.receive(child_handler)
