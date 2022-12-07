@@ -18,6 +18,7 @@ async def setup(ctx: Context[str]) -> BehaviorSetup[str]:
     stream = await trio.open_tcp_stream("127.0.0.1", get_port())
 
     async def setup_handler(msg: str) -> Behavior[str]:
+        print("child!!!")
         return Behaviors.Stop
 
     yield Behaviors.receive(setup_handler)

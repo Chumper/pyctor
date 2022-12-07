@@ -1,4 +1,3 @@
-
 import sys
 from functools import partial
 
@@ -10,26 +9,12 @@ from pyctor.types import Behavior, BehaviorSetup, Context
 
 
 class MultiProcessConnectionActor:
-    _parent_nursery: trio.Nursery
-    _port: int
+    _stream: trio.SocketStream
 
-    def __init__(self, nursery: trio.Nursery, port: int) -> None:
-        self._parent_nursery = nursery
-        self._port = port
+    def __init__(self, stream: trio.SocketStream) -> None:
+        self._stream = stream
 
     async def setup(self, ctx: Context[SpawnRequest]) -> BehaviorSetup[SpawnRequest]:
-
-        # spawn the process
-        spawn_cmd = [
-            sys.executable,
-            "-m",
-            "pyctor.multiprocess.child",
-            "--port",
-            str(self._port)
-    ]
-        params = partial(trio.run_process, spawn_cmd)
-        process = await self._parent_nursery.start(params)
-
         async def setup_handler(msg: SpawnRequest) -> Behavior[SpawnRequest]:
             print("spawn")
             return Behaviors.Same

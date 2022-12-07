@@ -13,6 +13,7 @@ from pyctor.types import Behavior, Ref
 class PIDRequest:
     reply_to: Ref[int]
 
+
 def test_multiprocess():
     num_processes = 2
     pids: Set[int] = ()
@@ -34,6 +35,7 @@ def test_multiprocess():
 
     trio.run(main)
     assert len(pids) == num_processes
+
 
 if __name__ == "__main__":
     test_multiprocess()
