@@ -73,5 +73,5 @@ class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor, Generic[pyctor.types
             except TypeError as t:
                 # Behavior or chain has not the correct type.
                 # Abort in this case with an error message and stop
-                logger.error("Behavior has not the correct type")
+                logger.error("Behavior has not the correct type", t)
                 run = False

@@ -24,7 +24,7 @@ class MultiProcessServerActor:
     """
     _processes: Dict[int, trio.Process] = {}
     _nursery: BehaviorNursery | None = None
-    _processes_connected: Dict[int, threading.Event] = {}
+    _processes_connected: Dict[int, trio.Event] = {}
     _children: Dict[int, pyctor.types.Ref[SpawnRequest]] = {}
 
     def __init__(self, max_processes: int) -> None:
@@ -36,16 +36,26 @@ class MultiProcessServerActor:
         # we will spawn a new ProcessBehavior that is responsible to:
         #   * send messages to the new process
         #   * spawn new behaviors on the new process
+        print("connected, I think...")
         if self._nursery:
-            stream_behavior = Behaviors.setup(MultiProcessConnectionActor(stream=stream).setup)
+            stream_behavior = Behaviors.setup(
+                MultiProcessConnectionActor(stream=stream).setup
+            )
             stream_ref = await self._nursery.spawn(stream_behavior)
-            # self._children[]
+            self._children[self._spawn_counter] = stream_ref
+            self._processes_connected[self._spawn_counter].set()
 
-    async def start_process(self, index: int, port: int) -> trio.Process:
-        self._processes_connected[index] = threading.Event()
+    async def start_process(self, index: int, port: int) -> None:
+        self._processes_connected[index] = trio.Event()
 
         # spawn the process
-        spawn_cmd = [sys.executable, "-m", "pyctor.multiprocess.child", "--port", str(port)]
+        spawn_cmd = [
+            sys.executable,
+            "-m",
+            "pyctor.multiprocess.child",
+            "--port",
+            str(port),
+        ]
         process: trio.Process
         params = partial(trio.run_process, spawn_cmd)
         if self._nursery:
@@ -53,9 +63,7 @@ class MultiProcessServerActor:
 
             # wait until the process has connected back and there is a ref
             self._processes[index] = process
-            self._processes_connected[index].wait()
-
-        return process
+            await self._processes_connected[index].wait()
 
     async def setup(self, _: Context[SpawnRequest]) -> BehaviorSetup[SpawnRequest]:
 
@@ -63,8 +71,11 @@ class MultiProcessServerActor:
             self._nursery = n
 
             # start the server
-            params = partial(trio.serve_tcp, self.connection_handler, 0, host="127.0.0.1")
+            params = partial(
+                trio.serve_tcp, self.connection_handler, 0, host="127.0.0.1"
+            )
             listeners: List[trio.SocketListener] = await n._nursery.start(params)
+            
             # get the port
             port = listeners[0].socket.getsockname()[1]
 
@@ -76,14 +87,12 @@ class MultiProcessServerActor:
                 self._spawn_counter += 1 % self._max_processes
 
                 # if the process childrend does not exist yet, we start it
-                with trio.fail_after(2):
-                    if self._spawn_counter not in self._processes:
-                        await self.start_process(port, self._spawn_counter)
-
-                # process needs to connect back
+                # with trio.fail_after(2):
+                if self._spawn_counter not in self._processes:
+                    await self.start_process(index=self._spawn_counter, port=port)
 
                 # send same spawn message to child process
-                # self._processes[self._spawn_counter].send(msg=msg)
+                self._children[self._spawn_counter].send(msg=msg)
 
                 return Behaviors.Same
 

@@ -15,8 +15,8 @@ class MultiProcessConnectionActor:
         self._stream = stream
 
     async def setup(self, ctx: Context[SpawnRequest]) -> BehaviorSetup[SpawnRequest]:
+        print("spawn subprocess")
         async def setup_handler(msg: SpawnRequest) -> Behavior[SpawnRequest]:
-            print("spawn")
             return Behaviors.Same
 
         # return a type checked behavior
