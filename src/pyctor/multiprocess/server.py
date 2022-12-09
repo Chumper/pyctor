@@ -7,8 +7,8 @@ import trio
 
 import pyctor
 from pyctor.behaviors import Behaviors
-from pyctor.messages import SpawnRequest
-from pyctor.multiprocess.connection import MultiProcessConnectionActor
+from pyctor.multiprocess.connection import MultiProcessServerConnectionActor
+from pyctor.multiprocess.messages import MultiProcessBase, SpawnRequest
 from pyctor.types import Behavior, BehaviorNursery, BehaviorSetup, Context
 
 
@@ -25,7 +25,7 @@ class MultiProcessServerActor:
     _processes: Dict[int, trio.Process] = {}
     _nursery: BehaviorNursery | None = None
     _processes_connected: Dict[int, trio.Event] = {}
-    _children: Dict[int, pyctor.types.Ref[SpawnRequest]] = {}
+    _children: Dict[int, pyctor.types.Ref[MultiProcessBase]] = {}
 
     def __init__(self, max_processes: int) -> None:
         self._max_processes = max_processes
@@ -39,7 +39,7 @@ class MultiProcessServerActor:
         print("connected, I think...")
         if self._nursery:
             stream_behavior = Behaviors.setup(
-                MultiProcessConnectionActor(stream=stream).setup
+                MultiProcessServerConnectionActor(stream=stream).setup
             )
             stream_ref = await self._nursery.spawn(stream_behavior)
             self._children[self._spawn_counter] = stream_ref

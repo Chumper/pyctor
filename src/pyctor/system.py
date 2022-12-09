@@ -11,6 +11,10 @@ import pyctor.spawn
 import pyctor.types
 from pyctor.registry import BehaviorRegistry
 
+is_child: bool = True
+"""
+trio.run flag to indicate if the current process is a child or the server
+"""
 registry: trio.lowlevel.RunVar = trio.lowlevel.RunVar("registry", BehaviorRegistry())
 """
 trio.run local registry for all behaviors. Effectively one core.
