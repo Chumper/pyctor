@@ -43,13 +43,8 @@ async def main() -> None:
         ref.send(f"crash")
         ref.send(f"Hi from the ActorSystem")
 
-        # not possible due to type safety, comment in to see mypy in action
-        # ref.send(1)
-        # ref.send(True)
-        await trio.sleep(1)
-
         # stop the system, otherwise actors will stay alive forever
-        await n.stop()
+        n.stop_all()
     print("Actor System was shut down")
 
 

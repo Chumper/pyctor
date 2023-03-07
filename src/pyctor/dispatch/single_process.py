@@ -31,7 +31,7 @@ class SingleProcessDispatcher(pyctor.types.Dispatcher):
         # create a new memory channel
         send, receive = trio.open_memory_channel(0)
         # register and get ref
-        ref = pyctor.system.registry.get().register(name=name, channel=send)
+        ref = await pyctor.system.registry.get().register(name=name, channel=send)
 
         # create the process
         b = pyctor.behavior.process.BehaviorProcessorImpl[pyctor.types.T](behavior=behavior, channel=receive, context=pyctor.context.ContextImpl(ref))

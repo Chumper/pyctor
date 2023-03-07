@@ -4,15 +4,17 @@ from uuid import uuid4
 
 import trio
 
+import cloudpickle # type: ignore
+
 import pyctor.behavior
 import pyctor.behavior.process
 import pyctor.behaviors
 import pyctor.context
-import pyctor.messages
 import pyctor.multiprocess.server
+import pyctor.multiprocess.messages
 import pyctor.system
 import pyctor.types
-from pyctor.registry import BehaviorRegistry
+from pyctor.registry import RegistryImpl
 
 # Plan:
 # determine next process
@@ -23,30 +25,30 @@ from pyctor.registry import BehaviorRegistry
 
 
 class MultiProcessState:
-    _ref: pyctor.types.Ref[pyctor.messages.MultiProcessBase] | None = None
+    _ref: pyctor.types.Ref[pyctor.multiprocess.messages.MultiProcessMessage] | None = None
     """
     The actual ref of the behavior that spawns the behaviors on another process
     """
-    _lock = threading.Lock()
+    _lock = trio.Lock()
     """
     A lock to initially spawn the multi process behavior 
     """
 
-    def ref(self) -> pyctor.types.Ref[pyctor.messages.MultiProcessBase]:
-        with self._lock:
+    async def ref(self) -> pyctor.types.Ref[pyctor.multiprocess.messages.MultiProcessMessage]:
+        async with self._lock:
             if not self._ref:
                 # define channels
                 send: trio.abc.SendChannel
                 receive: trio.abc.ReceiveChannel
-                registry: BehaviorRegistry = pyctor.system.registry.get()
+                registry: pyctor.types.Registry = pyctor.system.registry.get()
 
                 # create a new memory channel
                 send, receive = trio.open_memory_channel(0)
                 # register and get ref
-                self._ref = registry.register(channel=send, name=str(uuid4()))
+                self._ref = await registry.register(channel=send, name=str(uuid4()))
 
                 # server behavior
-                server_behavior = pyctor.behaviors.Behaviors.setup(pyctor.multiprocess.server.MultiProcessServerActor(max_processes=2).setup)
+                server_behavior = pyctor.multiprocess.server.MultiProcessServerActor.create(max_processes=2)
 
                 # create the process
                 b = pyctor.behavior.process.BehaviorProcessorImpl[pyctor.types.T](
@@ -86,6 +88,9 @@ class MultiProcessDispatcher(pyctor.types.Dispatcher):
         name: str,
     ) -> pyctor.types.Ref[pyctor.types.T]:
         # send message to multi process behavior
-        ref = self._state.ref()
-        remote_ref = await ref.ask(lambda x: pyctor.messages.SpawnRequest(reply_to=x, behavior=behavior, name=name))
+        ref = await self._state.ref()
+        # use cloudpickle to pickle the behavior
+        behavior_bytes = cloudpickle.dumps(behavior)
+        
+        remote_ref = await ref.ask(lambda x: pyctor.multiprocess.messages.SpawnCommand(reply_to=x, behavior=behavior_bytes, name=name))
         return remote_ref

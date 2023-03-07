@@ -27,9 +27,9 @@ class SpawnerImpl(pyctor.types.Spawner):
     def children(self) -> List[pyctor.types.Ref[None]]:
         return self._children
 
-    async def stop(self) -> None:
+    def stop_all(self) -> None:
         for c in self._children:
-            await c.stop()
+            c.stop()
 
     async def spawn(
         self,

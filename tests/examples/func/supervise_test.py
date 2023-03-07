@@ -35,6 +35,7 @@ def test_supervise():
                 ref = await n.spawn(supervise_behavior)
                 for i in [1, 0, 1, -1]:
                     ref.send(i)
+                    # force order
                     await trio.sleep(0)
 
     trio.run(main)

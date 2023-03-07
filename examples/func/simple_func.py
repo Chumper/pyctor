@@ -11,6 +11,8 @@ Simple functional example how to spawn a behavior that will print messages
 
 async def message_handler(msg: str) -> Behavior[str]:
     print(f"message behavior received: {msg}")
+    if msg == 9:
+        return Behaviors.Stop
     return Behaviors.Same
 
 
@@ -25,16 +27,15 @@ async def main() -> None:
         for i in range(10):
             # message order is not guaranteed!
             message_ref.send(f"Hi from the Behavior Tree {i}")
+            # force ordering
+            await trio.sleep(0)
 
         # not possible due to type safety, comment in to see mypy in action
         # message_ref.send(1)
         # message_ref.send(True)
 
-        # sleep a bit, otherwise the behavior tree is shut down
-        await trio.sleep(1)
-
         # stop the system, otherwise behaviors will stay alive forever
-        await n.stop()
+        n.stop_all()
     print("behavior tree was shut down")
 
 

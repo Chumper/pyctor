@@ -1,10 +1,6 @@
 from logging import getLogger
 from typing import Type
 
-import pyctor._util
-import pyctor.behaviors
-import pyctor.ref
-import pyctor.signals
 import pyctor.types
 
 logger = getLogger(__name__)

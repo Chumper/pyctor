@@ -26,10 +26,8 @@ class InvalidQuestion:
 
 async def message_handler(msg: Question) -> Behavior[Question]:
     print(f"Got a new question: {msg.question}")
-
     msg.reply_to.send("This is the reply to your question!")
-
-    return Behaviors.Same
+    return Behaviors.Stop
 
 
 async def main() -> None:
@@ -42,11 +40,7 @@ async def main() -> None:
 
         answer = await message_ref.ask(lambda x: Question(question="Is this the real life?", reply_to=x))
         print(f"Answer: {answer}")
-        answer = await message_ref.ask(lambda x: InvalidQuestion(question="Is this just fantasy?", reply_to=x))
-        print(f"Answer2: {answer}")
 
-        # stop the system, otherwise behaviors will stay alive forever
-        await n.stop()
     print("behavior tree was shut down")
 
 
