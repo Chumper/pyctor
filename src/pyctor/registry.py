@@ -1,12 +1,12 @@
-from logging import getLogger
 import platform
-from typing import Any, Dict, List, Tuple, TypedDict
+from logging import getLogger
+from typing import Any, Dict, List, Optional, Tuple, TypedDict
 
 import trio
 
 import pyctor.ref
-import pyctor.types
 import pyctor.strategies
+import pyctor.types
 
 logger = getLogger(__name__)
 
@@ -52,9 +52,7 @@ class RegistryImpl(pyctor.types.Registry):
     Other registries could watch the same behavior just with different watchers. 
     """
     _remotes: Dict[str, trio.abc.SendChannel] = {}
-    """
-    
-    """
+    _default_remote: trio.abc.SendChannel = None
 
     def __init__(self) -> None:
         # determine registry name
@@ -78,6 +76,7 @@ class RegistryImpl(pyctor.types.Registry):
     async def deregister(self, ref: pyctor.types.Ref[pyctor.types.T]) -> None:
         # remove from dict and call watchers
         async with self._lock:
+            logger.info(f"Deregister ref: {ref.url}")
             if ref.url in self._registry:
                 # available, so call watchers and remove from dict
                 for entry in self._watchers[ref.url]:
@@ -107,8 +106,9 @@ class RegistryImpl(pyctor.types.Registry):
         else:
             try:
                 self._lock.acquire_nowait()
-                self._registry[self._url + name] = (pyctor.ref.RefImpl(registry=self._url, name=name, strategy=localMessageStrategy), channel)
+                self._registry[registry + name] = (pyctor.ref.RefImpl(registry=registry, name=name, strategy=remoteMessageStrategy), self._remotes.get(registry, self._default_remote))
                 self._lock.release()
+                return self._registry[registry + name][0]
             except trio.WouldBlock:
                 return pyctor.ref.RefImpl(registry=registry, name=name, strategy=remoteMessageStrategy)
 
@@ -118,6 +118,7 @@ class RegistryImpl(pyctor.types.Registry):
         raise ValueError(f"No Behavior with ref '{ref.url}'")
     
     def register_default_remote(self, ref: pyctor.types.Ref[pyctor.types.T]) -> None:
+        self._default_remote = self.channel_from_ref(ref)
 
 
     # def remote_from_name(self, registry: str) -> trio.abc.SendChannel[pyctor.types.T]:

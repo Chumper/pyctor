@@ -1,20 +1,15 @@
 import logging
 import os
-from dataclasses import dataclass
 from typing import Set
 
 import trio
 
 import pyctor
 from pyctor.behaviors import Behaviors
-from pyctor.types import Behavior, Ref
-
+from pyctor.types import Behavior
+from tests.examples.func.messages import PIDRequest
 
 logging.basicConfig(level="DEBUG")
-
-@dataclass
-class PIDRequest:
-    reply_to: Ref[int]
 
 
 def test_multiprocess():
@@ -35,6 +30,7 @@ def test_multiprocess():
         async with pyctor.open_multiprocess_nursery() as n:
             for i in range(num_processes):
                 ref = await n.spawn(message_behavior)
+                print(f"Got a ref!!!! {ref.url}")
                 pid = await ref.ask(lambda x: PIDRequest(reply_to=x))
                 assert pid not in pids
                 pids.add(pid)

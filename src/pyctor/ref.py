@@ -1,8 +1,8 @@
+import uuid
 from logging import getLogger
 from typing import Any, Callable, Optional
 
 import trio
-
 
 import pyctor.behaviors
 import pyctor.system
@@ -72,7 +72,7 @@ class RefImpl(pyctor.types.Ref[pyctor.types.T]):
             return pyctor.behaviors.Behaviors.Stop
 
         async with pyctor.system.open_nursery() as n:
-            reply_ref = await n.spawn(pyctor.behaviors.Behaviors.receive(receive_behavior))
+            reply_ref = await n.spawn(pyctor.behaviors.Behaviors.receive(receive_behavior), name=f"ask-{uuid.uuid4()}")
             msg = f(reply_ref)
             # python has no intersection type...
             self.send(msg)  # type: ignore

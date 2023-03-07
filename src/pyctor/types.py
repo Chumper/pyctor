@@ -1,7 +1,22 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, AsyncContextManager, AsyncGenerator, Awaitable, Callable, Generic, List, Optional, Protocol, Tuple, Type, TypeAlias, TypeVar, runtime_checkable
+from typing import (
+    Any,
+    AsyncContextManager,
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    Generic,
+    List,
+    Optional,
+    Protocol,
+    Tuple,
+    Type,
+    TypeAlias,
+    TypeVar,
+    runtime_checkable,
+)
 from uuid import uuid4
 
 import trio
@@ -282,6 +297,10 @@ class Registry:
 
     @abstractmethod
     def register_default_remote(self, ref: Ref[T]) -> None:
+        ...
+
+    @abstractmethod
+    async def register_remote(self, registry: str, ref: Ref[T]) -> None:
         ...
 
 class Timer:

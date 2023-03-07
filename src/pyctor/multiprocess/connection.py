@@ -1,16 +1,26 @@
 from logging import getLogger
 
+import cloudpickle  # type: ignore
 import msgspec.msgpack
-import trio
-import cloudpickle #type: ignore
 import tricycle
+import trio
 
-from pyctor.behaviors import Behaviors
-from pyctor.multiprocess.messages import MessageCommand, MultiProcessMessage, SpawnCommand, StartedEvent, StopCommand, StoppedEvent, decode_func, get_type
-from pyctor.types import Behavior, BehaviorGeneratorFunction, BehaviorSetup, BehaviorSignal, Context, Ref
-import pyctor.types
-import pyctor.multiprocess.messages
 import pyctor.configuration
+import pyctor.multiprocess.messages
+import pyctor.types
+from pyctor.behaviors import Behaviors
+from pyctor.multiprocess.messages import (
+    MessageCommand,
+    MultiProcessMessage,
+    SpawnCommand,
+    StartedEvent,
+    StopCommand,
+    StoppedEvent,
+    decode_func,
+    get_type,
+)
+from pyctor.types import Behavior, BehaviorGeneratorFunction, BehaviorSetup, BehaviorSignal, Context, Ref
+
 logger = getLogger(__name__)
 
 
@@ -151,4 +161,9 @@ class MultiProcessServerConnectionReceiveActor:
 
     @staticmethod
     def create(stream: trio.SocketStream, decoder: msgspec.msgpack.Decoder, parent: pyctor.types.Ref[SpawnCommand]) -> BehaviorGeneratorFunction[MultiProcessMessage]:
-        return Behaviors.setup(MultiProcessServerConnectionReceiveActor(stream=stream, decoder=decoder, parent=parent).setup)
+        async def ignore(e: Exception) -> BehaviorSignal:
+            logger.error(e)
+            return Behaviors.Stop
+
+        setup = Behaviors.setup(MultiProcessServerConnectionReceiveActor(stream=stream, decoder=decoder, parent=parent).setup)
+        return Behaviors.supervise(strategy=ignore, behavior=setup)

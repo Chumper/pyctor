@@ -2,11 +2,11 @@ import builtins
 import sys
 from typing import Any, Callable, Type
 
-from msgspec import Struct, Raw
+from msgspec import Raw, Struct
 
-import pyctor.types
-import pyctor.system
 import pyctor.ref
+import pyctor.system
+import pyctor.types
 
 
 class MultiProcessMessage(Struct, tag_field="msg_type", tag=str.lower):

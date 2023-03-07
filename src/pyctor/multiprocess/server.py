@@ -1,21 +1,18 @@
-from dataclasses import dataclass
-from logging import getLogger
 import logging
+import platform
 import sys
+from dataclasses import dataclass
 from functools import partial
+from logging import getLogger
 from typing import Any, Dict, List
 
 import msgspec.msgpack
-
 import trio
 
 import pyctor
 import pyctor.configuration
 from pyctor.behaviors import Behaviors
-from pyctor.multiprocess.connection import (
-    MultiProcessServerConnectionReceiveActor,
-    MultiProcessServerConnectionSendActor,
-)
+from pyctor.multiprocess.connection import MultiProcessServerConnectionReceiveActor, MultiProcessServerConnectionSendActor
 from pyctor.multiprocess.messages import (
     MessageCommand,
     MultiProcessMessage,
@@ -23,8 +20,8 @@ from pyctor.multiprocess.messages import (
     StartedEvent,
     StopCommand,
     StoppedEvent,
-    encode_func,
     decode_func,
+    encode_func,
 )
 from pyctor.types import Behavior, BehaviorNursery, BehaviorSetup, Context
 
@@ -92,6 +89,10 @@ class MultiProcessServerActor:
             )
 
             send_ref = await n.spawn(send_actor)
+            # register remote in registry
+            registry: pyctor.types.Registry = pyctor.system.registry.get()
+            # Hacky hack, need to do better
+            await registry.register_remote(f"pyctor://{platform.node().lower()}/{self._spawn_counter}/", send_ref)
             receive_ref = await n.spawn(receive_actor)
 
             # TODO: watch the child for termination

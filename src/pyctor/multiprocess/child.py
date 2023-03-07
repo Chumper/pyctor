@@ -1,17 +1,18 @@
 import argparse
-from logging import getLogger
 import logging
 import os
 import sys
+from logging import getLogger
 from typing import Any, Callable, Tuple, Type
 
+import cloudpickle  # type: ignore
 import msgspec.msgpack
+import tricycle
 import trio
 
-import tricycle
-import cloudpickle  # type: ignore
-
 import pyctor
+import pyctor.configuration
+import pyctor.registry
 from pyctor import system
 from pyctor.behaviors import Behaviors
 from pyctor.configuration import set_custom_decoder_function, set_custom_encoder_function
@@ -22,15 +23,10 @@ from pyctor.multiprocess.messages import (
     StartedEvent,
     StopCommand,
     StoppedEvent,
+    decode_func,
+    get_type,
 )
-import pyctor.registry
-from pyctor.types import (
-    Behavior,
-    BehaviorGeneratorFunction,
-    BehaviorSetup,
-    Context,
-    Ref,
-)
+from pyctor.types import Behavior, BehaviorGeneratorFunction, BehaviorSetup, Context, Ref
 
 logger = getLogger(__name__)
 
@@ -73,6 +69,7 @@ class MultiProcessChildConnectionSendActor:
                     buffer = self._encoder.encode(msg)
                     await self.send(buffer=buffer)
                 case _:
+                    print(f"Child-Send: ignore type: {type(msg)} - content: {msg}")
                     return Behaviors.Ignore
             return Behaviors.Same
 
@@ -146,12 +143,17 @@ class MultiProcessChildConnectionReceiveActor:
                         )
                         # send the ref back to the orginial spawner
                         reply_to.send(spawned_ref)
+                        # force order, not sure if that is needed
+                        await trio.sleep(0)
                         # send an even to the master that we spawned a child
                         self._remote.send(StartedEvent(spawned_ref))
                     case StopCommand():
                         print(f" {os.getpid()}: stop ref")
                     case MessageCommand():
                         print(f" {os.getpid()}: send behavior")
+                        type = get_type(msg.type)
+                        new_msg = msgspec.msgpack.decode(msg.msg, dec_hook=decode_func(pyctor.configuration._custom_decoder_function), type=type)
+                        msg.ref.send(msg=new_msg)
                     case StartedEvent():
                         print(f" {os.getpid()}: behavior started")
                     case StoppedEvent():
