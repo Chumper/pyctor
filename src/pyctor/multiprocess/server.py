@@ -36,11 +36,12 @@ class ProcessEntry:
     receive_ref: pyctor.types.Ref[MultiProcessMessage] | None = None
 
 
-class MultiProcessServerActor:
+class MultiProcessServerBehavior:
     """
     Q: What should happen if the multiprocess server actor crashes?
     A: Shut down the server and therefore terminate all actors on the system.
     """
+
     _max_processes: int
     """
     Max amount of processes
@@ -78,11 +79,7 @@ class MultiProcessServerActor:
             receive_actor = MultiProcessServerConnectionReceiveActor.create(
                 stream=stream,
                 decoder=msgspec.msgpack.Decoder(
-                    SpawnCommand
-                    | StopCommand
-                    | StartedEvent
-                    | StoppedEvent
-                    | MessageCommand,
+                    SpawnCommand | StopCommand | StartedEvent | StoppedEvent | MessageCommand,
                     dec_hook=decode_func(pyctor.configuration._custom_decoder_function),
                 ),
                 parent=self._context.self(),
@@ -123,7 +120,7 @@ class MultiProcessServerActor:
             "--log-level",
             str(logging.getLevelName(logging.getLogger().getEffectiveLevel())),
             "--index",
-            str(index)
+            str(index),
         ]
         logger.debug("Running command: %s", spawn_cmd)
         process: trio.Process
@@ -145,9 +142,7 @@ class MultiProcessServerActor:
             self._nursery = n
 
             # start the server
-            params = partial(
-                trio.serve_tcp, self.connection_handler, 0, host="127.0.0.1"
-            )
+            params = partial(trio.serve_tcp, self.connection_handler, 0, host="127.0.0.1")
             listeners: List[trio.SocketListener] = await n._nursery.start(params)
 
             # get the port
@@ -181,4 +176,4 @@ class MultiProcessServerActor:
 
     @staticmethod
     def create(max_processes: int):
-        return pyctor.behaviors.Behaviors.setup(MultiProcessServerActor(max_processes=max_processes).setup)
+        return pyctor.behaviors.Behaviors.setup(MultiProcessServerBehavior(max_processes=max_processes).setup)

@@ -1,5 +1,5 @@
-from pyctor.registry import RegistryImpl
 import pyctor.types
+from pyctor.registry import RegistryImpl
 
 
 class ContextImpl(pyctor.types.Context[pyctor.types.T]):

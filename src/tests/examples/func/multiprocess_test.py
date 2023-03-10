@@ -34,7 +34,7 @@ def test_multiprocess():
                 pid = await ref.ask(lambda x: PIDRequest(reply_to=x))
                 assert pid not in pids
                 pids.add(pid)
-        
+
         async with pyctor.open_nursery() as n:
             ref = await n.spawn(message_behavior)
             pid = await ref.ask(lambda x: PIDRequest(reply_to=x))

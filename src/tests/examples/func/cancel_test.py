@@ -25,7 +25,7 @@ def test_cancel():
                 return Behaviors.Same
 
             yield Behaviors.receive(parent_handler)
-            
+
             # you need to stop children explicitly!
             # If you are not doing that they will continue to run and this nursery will never close!
             child_ref.stop()
@@ -47,6 +47,7 @@ def test_cancel():
 
     trio.run(main)
     assert counter == 2
+
 
 if __name__ == "__main__":
     test_cancel()

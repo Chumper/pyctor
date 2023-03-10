@@ -54,7 +54,7 @@ class Context(Generic[T]):
     @abstractmethod
     async def watch(self, ref: "Ref[U]", msg: T):
         ...
-    
+
     # @abstractmethod
     # @asynccontextmanager
     # def with_stash(self, n: int) -> AsyncGenerator["Stash[T]", None]:
@@ -137,6 +137,7 @@ class ReplyProtocol(Protocol[V]):
     The typed Ref that should receive the response (if any)
     """
 
+
 class Ref(Generic[T], ABC):
     """
     A Ref always points to an instance of a Behavior.
@@ -177,7 +178,7 @@ class Ref(Generic[T], ABC):
         Will send a system message to the behavior to stop the behavior and all of its children.
         """
         ...  # pragma: no cover
-    
+
     def stop(self) -> None:
         """
         EXPERIMENTAL: Not sure yet if this should stay.
@@ -202,6 +203,7 @@ class MessageStrategy(Generic[T], ABC):
     This class is used to define different send methods based on locality.
     There can be an implementation for local sending and for remote sending
     """
+
     @abstractmethod
     def transform_send_message(self, me: Ref[T], msg: T) -> Any:
         ...
@@ -210,7 +212,8 @@ class MessageStrategy(Generic[T], ABC):
     def transform_stop_message(self, me: Ref[T]) -> Optional[Any]:
         ...
 
-class Sender():
+
+class Sender:
     def send(self, ref: Ref[T], msg: T) -> None:
         """
         TBD
@@ -234,6 +237,7 @@ class Sender():
         Supports trio standard cancelation scope and should be used to place a timeout on the request.
         """
         ...  # pragma: no cover
+
 
 class BehaviorNursery(Spawner):
     _nursery: trio.Nursery
@@ -270,6 +274,7 @@ class Stash(Generic[T], ABC):
     async def close(self) -> None:
         ...  # pragma: no cover
 
+
 class Registry:
     @abstractmethod
     def set_index(self, index: int) -> None:
@@ -302,6 +307,7 @@ class Registry:
     @abstractmethod
     async def register_remote(self, registry: str, ref: Ref[T]) -> None:
         ...
+
 
 class Timer:
     pass

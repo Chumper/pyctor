@@ -7,6 +7,7 @@ from pyctor.types import Behavior, BehaviorSetup, Context
 
 def test_watch():
     counter = 0
+
     async def message_handler(msg: int) -> Behavior[int]:
         nonlocal counter
         counter += 1
@@ -24,9 +25,9 @@ def test_watch():
 
             async def setup_handler(msg: str) -> Behavior[str]:
                 if msg == "TERMINATED!!!!":
-                   nonlocal counter
-                   counter += 1
-                   return Behaviors.Stop
+                    nonlocal counter
+                    counter += 1
+                    return Behaviors.Stop
                 if msg == "Do Work!!!":
                     for i in range(10):
                         child_ref.send(i)
@@ -45,6 +46,7 @@ def test_watch():
 
     trio.run(main)
     assert counter == 11
+
 
 if __name__ == "__main__":
     test_watch()

@@ -9,8 +9,8 @@ import pyctor.types
 
 class SingleProcessDispatcher(pyctor.types.Dispatcher):
     """
-    Dispatcher that will start the Behavior in the current existing trio nursery.
-    Effectively it will start each Behavior in the same process tree as this nursery.
+    Dispatcher that will start new behaviors in the current existing trio nursery.
+    Effectively it will start each Behavior in the same process as this process.
     """
 
     _nursery: trio.Nursery

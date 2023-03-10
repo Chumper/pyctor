@@ -16,13 +16,16 @@ class MultiProcessMessage(Struct, tag_field="msg_type", tag=str.lower):
 class StoppedEvent(MultiProcessMessage):
     ref: pyctor.types.Ref[Any]
 
+
 class StartedEvent(MultiProcessMessage):
     ref: pyctor.types.Ref[Any]
+
 
 class SpawnCommand(MultiProcessMessage):
     reply_to: pyctor.types.Ref[pyctor.types.Ref[Any]]
     behavior: bytes
     name: str
+
 
 class StopCommand(MultiProcessMessage):
     ref: pyctor.types.Ref[Any]
@@ -33,12 +36,14 @@ class MessageCommand(MultiProcessMessage):
     type: str
     msg: Raw
 
+
 # def MessageCommand(ref: pyctor.types.Ref[pyctor.types.T], msg: pyctor.types.T):
 #     return defstruct("MessageCommand", [("msg", msg), ("ref", ref)]) # type: ignore
 
+
 def get_type(type_name: str):
     try:
-        module, name = type_name.rsplit('.', maxsplit=1)
+        module, name = type_name.rsplit(".", maxsplit=1)
         return getattr(builtins, name)
     except AttributeError:
         try:
@@ -46,6 +51,7 @@ def get_type(type_name: str):
         except KeyError:
             return None
         return obj
+
 
 def encode_func(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
     def encode_message(obj: Any) -> Any:
@@ -61,6 +67,7 @@ def encode_func(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
         if not data:
             raise TypeError(f"Objects of type {type(obj)} are not supported")
         return data
+
     return encode_message
 
 
@@ -73,10 +80,11 @@ def decode_func(func: Callable[[Type, Any], Any]) -> Callable[[Type, Any], Any]:
             return registry.ref_from_raw(obj[0], obj[1])
         if str(my_type).startswith("pyctor.types.Ref["):
             return registry.ref_from_raw(obj[0], obj[1])
-            
+
         # call custom decoder
         data = func(my_type, obj)
         if not data:
             raise TypeError(f"Objects of type {my_type} are not supported")
         return data
+
     return decode_message

@@ -29,7 +29,7 @@ class MultiProcessServerConnectionSendActor:
     Actor on the side where the main process is running.
     Responsible to send messages to the child process.
     """
-    
+
     _stream: trio.SocketStream
     _encoder: msgspec.msgpack.Encoder
     _context: pyctor.types.Context[MultiProcessMessage]
@@ -74,7 +74,7 @@ class MultiProcessServerConnectionSendActor:
 
         # return a type checked behavior
         yield Behaviors.receive(setup_handler)
-    
+
     @staticmethod
     def create(stream: trio.SocketStream, encoder: msgspec.msgpack.Encoder) -> BehaviorGeneratorFunction[MultiProcessMessage]:
         async def ignore(e: Exception) -> BehaviorSignal:
@@ -84,18 +84,19 @@ class MultiProcessServerConnectionSendActor:
         setup = Behaviors.setup(MultiProcessServerConnectionSendActor(stream=stream, encoder=encoder).setup)
         return Behaviors.supervise(strategy=ignore, behavior=setup)
 
+
 class MultiProcessServerConnectionReceiveActor:
     """
     Actor on the side where the main process is running.
     Responsible to receive the the events from the child process
     """
-    
+
     _stream: tricycle.BufferedReceiveStream
     _decoder: msgspec.msgpack.Decoder
     _parent: pyctor.types.Ref[SpawnCommand]
 
     def __init__(self, stream: trio.SocketStream, decoder: msgspec.msgpack.Decoder, parent: pyctor.types.Ref[SpawnCommand]) -> None:
-        self._stream =  tricycle.BufferedReceiveStream(transport_stream=stream) 
+        self._stream = tricycle.BufferedReceiveStream(transport_stream=stream)
         self._decoder = decoder
         self._parent = parent
 
@@ -105,9 +106,9 @@ class MultiProcessServerConnectionReceiveActor:
             try:
                 prefix = await self._stream.receive_exactly(4)
                 n = int.from_bytes(prefix, "big")
-                
+
                 logger.debug("Server: Receiving %s bytes from the wire", str(n))
-                
+
                 data = await self._stream.receive_exactly(n)
                 # decode
                 req: MultiProcessMessage = self._decoder.decode(data)
@@ -160,7 +161,9 @@ class MultiProcessServerConnectionReceiveActor:
             await self._stream.aclose()
 
     @staticmethod
-    def create(stream: trio.SocketStream, decoder: msgspec.msgpack.Decoder, parent: pyctor.types.Ref[SpawnCommand]) -> BehaviorGeneratorFunction[MultiProcessMessage]:
+    def create(
+        stream: trio.SocketStream, decoder: msgspec.msgpack.Decoder, parent: pyctor.types.Ref[SpawnCommand]
+    ) -> BehaviorGeneratorFunction[MultiProcessMessage]:
         async def ignore(e: Exception) -> BehaviorSignal:
             logger.error(e)
             return Behaviors.Stop

@@ -10,9 +10,11 @@ import pyctor.types
 
 logger = getLogger(__name__)
 
+
 class WatcherEntry(TypedDict):
     ref: pyctor.types.Ref[Any]
     msg: Any
+
 
 localMessageStrategy: pyctor.types.MessageStrategy = pyctor.strategies.LocalMessageStrategy()
 remoteMessageStrategy: pyctor.types.MessageStrategy = pyctor.strategies.RemoteMessageStrategy()
@@ -69,7 +71,7 @@ class RegistryImpl(pyctor.types.Registry):
                 # add to watcher
                 self._watchers[ref.url].append(WatcherEntry(ref=watcher, msg=msg))
             else:
-                # if the ref does not exist in this registry, 
+                # if the ref does not exist in this registry,
                 # then we guarantee that it has been stopped already
                 watcher.send(msg=msg)
 
@@ -82,7 +84,7 @@ class RegistryImpl(pyctor.types.Registry):
                 for entry in self._watchers[ref.url]:
                     entry["ref"].send(entry["msg"])
                 # remove from dict
-                del self._registry[ref.url] 
+                del self._registry[ref.url]
 
     async def register(self, name: str, channel: trio.abc.SendChannel[pyctor.types.T]) -> pyctor.types.Ref[pyctor.types.T]:
         async with self._lock:
@@ -91,7 +93,7 @@ class RegistryImpl(pyctor.types.Registry):
             self._registry[self._url + name] = (pyctor.ref.RefImpl(registry=self._url, name=name, strategy=localMessageStrategy), channel)
             self._watchers[self._url + name] = []
         return self._registry[self._url + name][0]
-    
+
     async def register_remote(self, registry: str, ref: pyctor.types.Ref[pyctor.types.T]) -> None:
         async with self._lock:
             self._remotes[registry] = self.channel_from_ref(ref)
@@ -106,7 +108,10 @@ class RegistryImpl(pyctor.types.Registry):
         else:
             try:
                 self._lock.acquire_nowait()
-                self._registry[registry + name] = (pyctor.ref.RefImpl(registry=registry, name=name, strategy=remoteMessageStrategy), self._remotes.get(registry, self._default_remote))
+                self._registry[registry + name] = (
+                    pyctor.ref.RefImpl(registry=registry, name=name, strategy=remoteMessageStrategy),
+                    self._remotes.get(registry, self._default_remote),
+                )
                 self._lock.release()
                 return self._registry[registry + name][0]
             except trio.WouldBlock:
@@ -116,14 +121,6 @@ class RegistryImpl(pyctor.types.Registry):
         if ref.url in self._registry:
             return self._registry[ref.url][1]
         raise ValueError(f"No Behavior with ref '{ref.url}'")
-    
+
     def register_default_remote(self, ref: pyctor.types.Ref[pyctor.types.T]) -> None:
         self._default_remote = self.channel_from_ref(ref)
-
-
-    # def remote_from_name(self, registry: str) -> trio.abc.SendChannel[pyctor.types.T]:
-    #     if registry in self._remotes:
-    #         return self._remotes[registry]
-    #     if self._default_remote:
-    #         return self._default_remote
-    #     raise ValueError(f"No Remote Channel registered")

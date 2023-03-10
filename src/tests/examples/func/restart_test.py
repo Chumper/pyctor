@@ -25,13 +25,13 @@ def test_restart():
 
             internal_counter += 1
             counter += 1
-            
+
             if internal_counter == 3:
                 if restart_counter == 3:
                     return Behaviors.Stop
 
                 return Behaviors.Restart
-            
+
             return Behaviors.Same
 
         yield Behaviors.receive(setup_handler)
@@ -46,6 +46,7 @@ def test_restart():
 
     trio.run(main)
     assert counter == 16
+
 
 if __name__ == "__main__":
     test_restart()

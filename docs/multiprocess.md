@@ -2,9 +2,9 @@
 
 ## General architecture
 
-Multiprocessing is done with a main process and n number of subprocesses, where the communication is done over TCP on localhost.
+Multiprocessing is implemented via subprocesses. There is one main process and n number of subprocesses, where the communication is done over TCP on localhost.
 
-The number of subprocesses is the same as the number of cores on the node but this can be controlled when creating multiprocess behaviors.
+The number of subprocesses is the same as the number of cores on the node but this can be controlled when creating multiprocess nurseries.
 
 ```mermaid
 graph TB
@@ -33,9 +33,3 @@ It will then spawn a sub process and provides the port of the server of the main
 
 ## Sub process architecture
 
-```mermaid
-sequenceDiagram
-    Main Process -->> Sub Process: Do Stuff
-    Main Process -->>+ Sub Process: Do other stuff
-    Sub Process -->>- Main Process: Return stuff
-```

@@ -7,15 +7,15 @@ import trio
 
 import pyctor.dispatch.multi_process
 import pyctor.dispatch.single_process
+import pyctor.registry
 import pyctor.spawn
 import pyctor.types
-import pyctor.registry
 
 is_child: bool = True
 """
 trio.run flag to indicate if the current process is a child or the server
 """
-registry: trio.lowlevel.RunVar = trio.lowlevel.RunVar(name="registry", default=pyctor.registry.RegistryImpl()) # type: ignore
+registry: trio.lowlevel.RunVar = trio.lowlevel.RunVar(name="registry", default=pyctor.registry.RegistryImpl())  # type: ignore
 """
 trio.run local registry for all behaviors. Effectively one core.
 """
@@ -50,7 +50,12 @@ async def open_multiprocess_nursery(
 ) -> AsyncGenerator[pyctor.types.BehaviorNursery, None]:
     try:
         async with trio.open_nursery() as n:
-            behavior_nursery = BehaviorNurseryImpl(nursery=n, dispatcher=pyctor.dispatch.multi_process.MultiProcessDispatcher(nursery=n, processes=processes))
+            behavior_nursery = BehaviorNurseryImpl(
+                nursery=n,
+                dispatcher=pyctor.dispatch.multi_process.MultiProcessDispatcher(
+                    nursery=n, processes=processes, dispatcher=pyctor.dispatch.single_process.SingleProcessDispatcher(nursery=n)
+                ),
+            )
             nursery.set(behavior_nursery)
             yield behavior_nursery
     finally:

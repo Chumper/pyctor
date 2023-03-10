@@ -39,7 +39,7 @@ class RefImpl(pyctor.types.Ref[pyctor.types.T]):
         self.name = name
         self.url = self.registry + self.name
         self.strategy = strategy
-    
+
     async def _internal_send(
         self,
         channel: trio.abc.SendChannel[pyctor.types.T],
@@ -78,7 +78,7 @@ class RefImpl(pyctor.types.Ref[pyctor.types.T]):
             self.send(msg)  # type: ignore
 
         return response  # type: ignore
-    
+
     def send(self, msg: pyctor.types.T) -> None:
         # get channel from registry
         registry: pyctor.types.Registry = pyctor.system.registry.get()

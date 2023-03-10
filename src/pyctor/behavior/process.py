@@ -8,8 +8,8 @@ import pyctor._util
 import pyctor.behaviors
 import pyctor.ref
 import pyctor.signals
-import pyctor.types
 import pyctor.system
+import pyctor.types
 
 logger = getLogger(__name__)
 
@@ -42,17 +42,11 @@ class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor, Generic[pyctor.types
             while run:
                 try:
                     if not isinstance(behavior, FunctionType):  # pragma: no cover
-                        logger.error(
-                            f"The provided behavior has an incorrect type: {type(behavior)}"
-                        )
+                        logger.error(f"The provided behavior has an incorrect type: {type(behavior)}")
                         raise TypeError(behavior)
                     async with behavior(self._context) as b:
-                        if not isinstance(
-                            b, pyctor.types.BehaviorHandler
-                        ):  # pragma: no cover
-                            logger.error(
-                                f"The provided behavior has an incorrect type: {type(b)}"
-                            )
+                        if not isinstance(b, pyctor.types.BehaviorHandler):  # pragma: no cover
+                            logger.error(f"The provided behavior has an incorrect type: {type(b)}")
                             raise TypeError(b)
                         try:
                             while True:
