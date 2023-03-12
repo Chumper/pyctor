@@ -1,6 +1,12 @@
 # Trio typed behaviors
 
-trio-typed-behaviors brings Akka like typed behaviors to Python on top of the trio library.
+`Trio Typed Behaviors` or `TTB` brings Akka like typed behaviors to Python on top of the trio library.
+
+
+```mermaid
+stateDiagram-v2
+    s1 --> s2
+```
 
 
 # Inspiration

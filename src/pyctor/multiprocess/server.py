@@ -12,18 +12,19 @@ import trio
 import pyctor
 import pyctor.configuration
 from pyctor.behaviors import Behaviors
-from pyctor.multiprocess.connection import MultiProcessServerConnectionReceiveActor, MultiProcessServerConnectionSendActor
+from pyctor.multiprocess.connection import (
+    MultiProcessServerConnectionReceiveActor,
+    MultiProcessServerConnectionSendActor,
+)
 from pyctor.multiprocess.messages import (
     MessageCommand,
     MultiProcessMessage,
     SpawnCommand,
-    StartedEvent,
     StopCommand,
-    StoppedEvent,
     decode_func,
     encode_func,
 )
-from pyctor.types import Behavior, BehaviorNursery, BehaviorSetup, Context
+from pyctor.types import Behavior, BehaviorNursery, BehaviorSetup, Context, StoppedEvent
 
 logger = getLogger(__name__)
 
@@ -31,7 +32,7 @@ logger = getLogger(__name__)
 @dataclass
 class ProcessEntry:
     process: trio.Process
-    is_connected: trio.Event = trio.Event()
+    is_connected: trio.Event
     send_ref: pyctor.types.Ref[MultiProcessMessage] | None = None
     receive_ref: pyctor.types.Ref[MultiProcessMessage] | None = None
 
@@ -74,12 +75,15 @@ class MultiProcessServerBehavior:
 
         async with pyctor.open_nursery() as n:
             send_actor = MultiProcessServerConnectionSendActor.create(
-                stream=stream, encoder=msgspec.msgpack.Encoder(enc_hook=encode_func(pyctor.configuration._custom_encoder_function))
+                stream=stream,
+                encoder=msgspec.msgpack.Encoder(
+                    enc_hook=encode_func(pyctor.configuration._custom_encoder_function)
+                ),
             )
             receive_actor = MultiProcessServerConnectionReceiveActor.create(
                 stream=stream,
                 decoder=msgspec.msgpack.Decoder(
-                    SpawnCommand | StopCommand | StartedEvent | StoppedEvent | MessageCommand,
+                    SpawnCommand | StopCommand | StoppedEvent | MessageCommand,
                     dec_hook=decode_func(pyctor.configuration._custom_decoder_function),
                 ),
                 parent=self._context.self(),
@@ -89,7 +93,9 @@ class MultiProcessServerBehavior:
             # register remote in registry
             registry: pyctor.types.Registry = pyctor.system.registry.get()
             # Hacky hack, need to do better
-            await registry.register_remote(f"pyctor://{platform.node().lower()}/{self._spawn_counter}/", send_ref)
+            await registry.register_remote(
+                f"pyctor://{platform.node().lower()}/{self._spawn_counter}/", send_ref
+            )
             receive_ref = await n.spawn(receive_actor)
 
             # TODO: watch the child for termination
@@ -104,7 +110,7 @@ class MultiProcessServerBehavior:
             # notify that the children is available
             self._children[self._spawn_counter].is_connected.set()
 
-    async def start_process(self, index: int, port: int) -> None:
+    async def start_process(self, port: int) -> None:
         logger.debug(
             "Starting new trio child process with log level %s",
             str(logging.getLevelName(logging.getLogger().getEffectiveLevel())),
@@ -120,7 +126,7 @@ class MultiProcessServerBehavior:
             "--log-level",
             str(logging.getLevelName(logging.getLogger().getEffectiveLevel())),
             "--index",
-            str(index),
+            str(self._spawn_counter),
         ]
         logger.debug("Running command: %s", spawn_cmd)
         process: trio.Process
@@ -129,8 +135,10 @@ class MultiProcessServerBehavior:
             process = await self._nursery._nursery.start(params)
 
             # wait until the process has connected back and there is a ref
-            self._children[index] = ProcessEntry(process=process)
-            await self._children[index].is_connected.wait()
+            self._children[self._spawn_counter] = ProcessEntry(
+                is_connected=trio.Event(), process=process
+            )
+            await self._children[self._spawn_counter].is_connected.wait()
             logger.debug("Child process connection established")
 
     async def setup(self, ctx: Context[SpawnCommand]) -> BehaviorSetup[SpawnCommand]:
@@ -142,7 +150,9 @@ class MultiProcessServerBehavior:
             self._nursery = n
 
             # start the server
-            params = partial(trio.serve_tcp, self.connection_handler, 0, host="127.0.0.1")
+            params = partial(
+                trio.serve_tcp, self.connection_handler, 0, host="127.0.0.1"
+            )
             listeners: List[trio.SocketListener] = await n._nursery.start(params)
 
             # get the port
@@ -154,12 +164,12 @@ class MultiProcessServerBehavior:
                 # type checking makes sure we only have that message here
 
                 # determine the process index
-                self._spawn_counter += 1 % self._max_processes
+                self._spawn_counter = (self._spawn_counter + 1) % self._max_processes
 
                 # if the process children does not exist yet, we start it
                 # with trio.fail_after(2):
                 if self._spawn_counter not in self._children:
-                    await self.start_process(index=self._spawn_counter, port=port)
+                    await self.start_process(port=port)
 
                 process_entry = self._children[self._spawn_counter]
                 # send same spawn message to child process
@@ -176,4 +186,11 @@ class MultiProcessServerBehavior:
 
     @staticmethod
     def create(max_processes: int):
-        return pyctor.behaviors.Behaviors.setup(MultiProcessServerBehavior(max_processes=max_processes).setup)
+        async def stop(e: Exception) -> pyctor.types.BehaviorSignal:
+            logger.error(e)
+            return Behaviors.Stop
+
+        behavior = pyctor.behaviors.Behaviors.setup(
+            MultiProcessServerBehavior(max_processes=max_processes).setup
+        )
+        return pyctor.behaviors.Behaviors.supervise(strategy=stop, behavior=behavior)

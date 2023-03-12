@@ -21,9 +21,14 @@ class MultiProcessDispatcher(pyctor.types.Dispatcher):
     _dispatcher: pyctor.types.Dispatcher
     _nursery: trio.Nursery
     _processes: int
-    _server: Optional[pyctor.types.Ref[pyctor.multiprocess.messages.MultiProcessMessage]] = None
+    _server: Optional[
+        pyctor.types.Ref[pyctor.multiprocess.messages.MultiProcessMessage]
+    ] = None
+    _lock: trio.Lock = trio.Lock()
 
-    def __init__(self, nursery: trio.Nursery, processes: int, dispatcher: pyctor.types.Dispatcher) -> None:
+    def __init__(
+        self, nursery: trio.Nursery, processes: int, dispatcher: pyctor.types.Dispatcher
+    ) -> None:
         super().__init__()
         self._nursery = nursery
         self._processes = processes
@@ -38,13 +43,21 @@ class MultiProcessDispatcher(pyctor.types.Dispatcher):
 
         # check if we need to spawn the multi process server behavior
         if not self._server:
-            name = f"multiprocess-{uuid.uuid4()}"
-            self._server = await self.dispatcher.dispatch(
-                behavior=pyctor.multiprocess.server.MultiProcessServerBehavior.create(max_processes=self._processes), name=name
-            )
+            async with self._lock:
+                name = f"multiprocess-{uuid.uuid4()}"
+                self._server = await self.dispatcher.dispatch(
+                    behavior=pyctor.multiprocess.server.MultiProcessServerBehavior.create(
+                        max_processes=self._processes
+                    ),
+                    name=name,
+                )
 
         # send message to multi process behavior
         behavior_bytes = cloudpickle.dumps(behavior)
 
-        remote_ref = await self._server.ask(lambda x: pyctor.multiprocess.messages.SpawnCommand(reply_to=x, behavior=behavior_bytes, name=name))
+        remote_ref = await self._server.ask(
+            lambda x: pyctor.multiprocess.messages.SpawnCommand(
+                reply_to=x, behavior=behavior_bytes, name=name
+            )
+        )
         return remote_ref

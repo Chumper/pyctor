@@ -43,14 +43,18 @@ class Behaviors:
         type_check: Type[pyctor.types.T] | None = None,
     ) -> pyctor.types.BehaviorGeneratorFunction[pyctor.types.T]:
         if not isinstance(func, FunctionType):
-            logger.error(f"Behaviors.receive() was not provided a BehaviorFunction[T]): {type(func)}")
+            logger.error(
+                f"Behaviors.receive() was not provided a BehaviorFunction[T]): {type(func)}"
+            )
             raise TypeError(func)
 
         @asynccontextmanager
         async def f(
             c: pyctor.types.Context[pyctor.types.T],
         ) -> AsyncGenerator[pyctor.types.BehaviorHandler[pyctor.types.T], None]:
-            yield pyctor.behavior.impl.BehaviorHandlerImpl(behavior=func, type_check=type_check)
+            yield pyctor.behavior.impl.BehaviorHandlerImpl(
+                behavior=func, type_check=type_check
+            )
 
         return f
 
@@ -98,6 +102,8 @@ class Behaviors:
                 # if not isinstance(f, pyctor.types.BehaviorHandler):
                 #     logger.error(f"Behaviors.supervise() was not provided () -> BehaviorGenerator[T]): {type(f)}")
                 #     raise TypeError(f)
-                yield pyctor.behavior.supervise.SuperviseBehaviorHandlerImpl(strategy=strategy, behavior=f)
+                yield pyctor.behavior.supervise.SuperviseBehaviorHandlerImpl(
+                    strategy=strategy, behavior=f
+                )
 
         return f

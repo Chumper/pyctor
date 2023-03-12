@@ -33,3 +33,22 @@ It will then spawn a sub process and provides the port of the server of the main
 
 ## Sub process architecture
 
+```mermaid
+stateDiagram-v2
+    Channel --> r
+    state Subprocess {
+        r: Receiver
+        s: Sender
+
+        r --> A
+        r --> B
+
+        A --> AA
+        A --> AB
+
+        A --> s
+        B --> s
+        AB --> s
+        AA --> s
+    }
+```

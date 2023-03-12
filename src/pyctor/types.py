@@ -20,6 +20,7 @@ from typing import (
 from uuid import uuid4
 
 import trio
+from msgspec import Struct
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -308,6 +309,14 @@ class Registry:
     async def register_remote(self, registry: str, ref: Ref[T]) -> None:
         ...
 
+    @abstractmethod
+    def remotes(self) -> List[trio.abc.SendChannel]:
+        ...
+
 
 class Timer:
     pass
+
+
+class StoppedEvent(Struct, tag_field="msg_type", tag=str.lower):
+    ref: Ref[Any]

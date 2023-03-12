@@ -20,7 +20,9 @@ def test_send():
         with trio.fail_after(1):
             async with pyctor.open_nursery() as n:
                 for i in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
-                    message_behavior = Behaviors.receive(counter_message_handler(i), type_check=int)
+                    message_behavior = Behaviors.receive(
+                        counter_message_handler(i), type_check=int
+                    )
                     message_ref = await n.spawn(message_behavior)
                     message_ref.send(0)
 

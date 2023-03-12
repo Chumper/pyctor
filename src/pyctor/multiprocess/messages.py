@@ -13,14 +13,6 @@ class MultiProcessMessage(Struct, tag_field="msg_type", tag=str.lower):
     pass
 
 
-class StoppedEvent(MultiProcessMessage):
-    ref: pyctor.types.Ref[Any]
-
-
-class StartedEvent(MultiProcessMessage):
-    ref: pyctor.types.Ref[Any]
-
-
 class SpawnCommand(MultiProcessMessage):
     reply_to: pyctor.types.Ref[pyctor.types.Ref[Any]]
     behavior: bytes
@@ -35,10 +27,6 @@ class MessageCommand(MultiProcessMessage):
     ref: pyctor.types.Ref[Any]
     type: str
     msg: Raw
-
-
-# def MessageCommand(ref: pyctor.types.Ref[pyctor.types.T], msg: pyctor.types.T):
-#     return defstruct("MessageCommand", [("msg", msg), ("ref", ref)]) # type: ignore
 
 
 def get_type(type_name: str):

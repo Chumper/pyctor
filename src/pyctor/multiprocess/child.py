@@ -15,18 +15,26 @@ import pyctor.configuration
 import pyctor.registry
 from pyctor import system
 from pyctor.behaviors import Behaviors
-from pyctor.configuration import set_custom_decoder_function, set_custom_encoder_function
+from pyctor.configuration import (
+    set_custom_decoder_function,
+    set_custom_encoder_function,
+)
 from pyctor.multiprocess.messages import (
     MessageCommand,
     MultiProcessMessage,
     SpawnCommand,
-    StartedEvent,
     StopCommand,
-    StoppedEvent,
     decode_func,
     get_type,
 )
-from pyctor.types import Behavior, BehaviorGeneratorFunction, BehaviorSetup, Context, Ref
+from pyctor.types import (
+    Behavior,
+    BehaviorGeneratorFunction,
+    BehaviorSetup,
+    Context,
+    Ref,
+    StoppedEvent,
+)
 
 logger = getLogger(__name__)
 
@@ -40,7 +48,9 @@ class MultiProcessChildConnectionSendActor:
     _stream: trio.SocketStream
     _encoder: msgspec.msgpack.Encoder
 
-    def __init__(self, stream: trio.SocketStream, encoder: msgspec.msgpack.Encoder) -> None:
+    def __init__(
+        self, stream: trio.SocketStream, encoder: msgspec.msgpack.Encoder
+    ) -> None:
         self._stream = stream
         self._encoder = encoder
 
@@ -51,7 +61,9 @@ class MultiProcessChildConnectionSendActor:
         await self._stream.send_all(prefix)
         await self._stream.send_all(buffer)
 
-    async def setup(self, _: Context[MultiProcessMessage]) -> BehaviorSetup[MultiProcessMessage]:
+    async def setup(
+        self, _: Context[MultiProcessMessage]
+    ) -> BehaviorSetup[MultiProcessMessage]:
 
         logger.info("MultiProcess Child Send Actor started")
 
@@ -61,7 +73,7 @@ class MultiProcessChildConnectionSendActor:
             # any message we get we send on the wire...
             print(f"Child-Send: type: {type(msg)} - content: {msg}")
             match msg:
-                case SpawnCommand() | StopCommand() | MessageCommand() | StartedEvent() | StoppedEvent():
+                case SpawnCommand() | StopCommand() | MessageCommand() | StoppedEvent():
                     buffer = self._encoder.encode(msg)
                     await self.send(buffer=buffer)
                 case _:
@@ -73,8 +85,12 @@ class MultiProcessChildConnectionSendActor:
         yield Behaviors.receive(setup_handler)
 
     @staticmethod
-    def create(stream: trio.SocketStream, encoder: msgspec.msgpack.Encoder) -> BehaviorGeneratorFunction[MultiProcessMessage]:
-        return Behaviors.setup(MultiProcessChildConnectionSendActor(stream=stream, encoder=encoder).setup)
+    def create(
+        stream: trio.SocketStream, encoder: msgspec.msgpack.Encoder
+    ) -> BehaviorGeneratorFunction[MultiProcessMessage]:
+        return Behaviors.setup(
+            MultiProcessChildConnectionSendActor(stream=stream, encoder=encoder).setup
+        )
 
 
 class MultiProcessChildConnectionReceiveActor:
@@ -86,16 +102,19 @@ class MultiProcessChildConnectionReceiveActor:
     _stream: tricycle.BufferedReceiveStream
     _decoder: msgspec.msgpack.Decoder
     _remote: Ref[MultiProcessMessage]
+    _registry: pyctor.types.Registry
 
     def __init__(
         self,
-        stream: trio.SocketStream,
+        stream: tricycle.BufferedReceiveStream,
         decoder: msgspec.msgpack.Decoder,
         remote: Ref[MultiProcessMessage],
+        registry: pyctor.types.Registry,
     ) -> None:
-        self._stream = tricycle.BufferedReceiveStream(transport_stream=stream)
+        self._stream = stream
         self._decoder = decoder
         self._remote = remote
+        self._registry = registry
 
     async def recv(self, self_ref: Ref[MultiProcessMessage]) -> None:
         while True:
@@ -113,7 +132,9 @@ class MultiProcessChildConnectionReceiveActor:
                 self_ref.stop()
                 break
 
-    async def setup(self, ctx: Context[MultiProcessMessage]) -> BehaviorSetup[MultiProcessMessage]:
+    async def setup(
+        self, ctx: Context[MultiProcessMessage]
+    ) -> BehaviorSetup[MultiProcessMessage]:
 
         logger.info("MultiProcess Child Receive Actor started")
 
@@ -128,30 +149,39 @@ class MultiProcessChildConnectionReceiveActor:
                     case SpawnCommand(reply_to, behavior, name):
                         print(f"{os.getpid()}: spawn behavior")
                         decoded_behavior = cloudpickle.loads(behavior)
-                        spawned_ref = await n.spawn(behavior=decoded_behavior, name=name)
+                        spawned_ref = await n.spawn(
+                            behavior=decoded_behavior, name=name
+                        )
                         # send the ref back to the orginial spawner
                         reply_to.send(spawned_ref)
                         # force order, not sure if that is needed
                         await trio.sleep(0)
-                        # send an even to the master that we spawned a child
-                        self._remote.send(StartedEvent(spawned_ref))
                     case StopCommand():
-                        print(f" {os.getpid()}: stop ref")
+                        print(f"{os.getpid()}: stop ref")
                         # stop the ref
+                        msg.ref.stop()
                     case MessageCommand():
-                        print(f" {os.getpid()}: send behavior")
+                        print(f"{os.getpid()}: send behavior")
                         type = get_type(msg.type)
-                        new_msg = msgspec.msgpack.decode(msg.msg, dec_hook=decode_func(pyctor.configuration._custom_decoder_function), type=type)
+                        new_msg = msgspec.msgpack.decode(
+                            msg.msg,
+                            dec_hook=decode_func(
+                                pyctor.configuration._custom_decoder_function
+                            ),
+                            type=type,
+                        )
                         msg.ref.send(msg=new_msg)
-                    case StartedEvent():
-                        print(f" {os.getpid()}: behavior started")
-                        # send to registry
                     case StoppedEvent():
-                        print(f" {os.getpid()}: behavior stopped")
+                        print(f"{os.getpid()}: behavior stopped")
                         # send to registry
+                        await self._registry.deregister(msg.ref)
                     case _:
                         return Behaviors.Ignore
-                return Behaviors.Same
+                # return the same behavior as long as we have children
+                # if we have no children, then we should stop ourselves.
+                # When the behavior is started we will get an initial spawn message
+                # so it is guaranteed that the first message will spawn a child.
+                return Behaviors.Same if n.children else Behaviors.Stop
 
             # return a type checked behavior
             yield Behaviors.receive(setup_handler, type_check=MultiProcessMessage)
@@ -162,20 +192,24 @@ class MultiProcessChildConnectionReceiveActor:
 
     @staticmethod
     def create(
-        stream: trio.SocketStream,
+        stream: tricycle.BufferedReceiveStream,
         decoder: msgspec.msgpack.Decoder,
         remote: Ref[MultiProcessMessage],
+        registry: pyctor.types.Registry,
     ) -> BehaviorGeneratorFunction[MultiProcessMessage]:
-        return Behaviors.setup(MultiProcessChildConnectionReceiveActor(stream=stream, decoder=decoder, remote=remote).setup)
+        return Behaviors.setup(
+            MultiProcessChildConnectionReceiveActor(
+                stream=stream, decoder=decoder, remote=remote, registry=registry
+            ).setup
+        )
 
 
-async def get_callable(stream: trio.SocketStream) -> Any:
+async def get_callable(stream: tricycle.BufferedReceiveStream) -> Any:
     try:
-        s = tricycle.BufferedReceiveStream(transport_stream=stream)
-        prefix = await s.receive_exactly(4)
+        prefix = await stream.receive_exactly(4)
         n = int.from_bytes(prefix, "big")
         logger.info("MultiProcess child will receive callable with %s bytes", str(n))
-        data = await s.receive_exactly(n)
+        data = await stream.receive_exactly(n)
 
         return cloudpickle.loads(data)
     except Exception as e:
@@ -185,8 +219,12 @@ async def get_callable(stream: trio.SocketStream) -> Any:
 
 def get_arg() -> Tuple[int, int, str]:
     parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--port", help="Port for the multi processing", required=True)
-    parser.add_argument("-i", "--index", help="Index of this multi processing process", required=True)
+    parser.add_argument(
+        "-p", "--port", help="Port for the multi processing", required=True
+    )
+    parser.add_argument(
+        "-i", "--index", help="Index of this multi processing process", required=True
+    )
     parser.add_argument("-l", "--log-level", help="Log level", required=True)
     args = parser.parse_args()
     return int(args.port), int(args.index), str(args.log_level)
@@ -201,45 +239,48 @@ async def main() -> None:
     # set log level
     logging.basicConfig(level=log_level)
 
-    logger.info("MultiProcess Child Process starting")
+    logger.debug("connecting to parent port=%s", str(port))
 
     # Set
-    system.is_child = True
     stream = await trio.open_tcp_stream("127.0.0.1", port=port)
 
-    logger.info("MultiProcess Child connected to port %s", str(port))
+    logger.debug("connected to parent port=%s", str(port))
 
     # get encoding and decoding functions
-    encoder: Callable[[Any], Any] = await get_callable(stream=stream)
-    decoder: Callable[[Type, Any], Any] = await get_callable(stream=stream)
+    s = tricycle.BufferedReceiveStream(transport_stream=stream)
+    encoder: Callable[[Any], Any] = await get_callable(stream=s)
+    decoder: Callable[[Type, Any], Any] = await get_callable(stream=s)
 
     set_custom_encoder_function(encoder)
     set_custom_decoder_function(decoder)
 
-    logger.info("MultiProcess Child received encoder and decoder")
+    logger.debug("encoder and decoder received")
 
     # as we are already a child process we should not start a multi process nursery
     # instead we will be a good child and only spawn new behaviors in our own process.
     async with pyctor.open_nursery() as n:
         # start two behaviors, one for receiving, one for sending from the stream
-        send_actor = MultiProcessChildConnectionSendActor.create(stream=stream, encoder=msgspec.msgpack.Encoder(enc_hook=encoder))
-        send_ref = await n.spawn(send_actor)
+        send_actor = MultiProcessChildConnectionSendActor.create(
+            stream=stream, encoder=msgspec.msgpack.Encoder(enc_hook=encoder)
+        )
+        send_ref = await n.spawn(send_actor, name="system/send")
 
         receive_actor = MultiProcessChildConnectionReceiveActor.create(
-            stream=stream,
+            stream=s,
             decoder=msgspec.msgpack.Decoder(
-                SpawnCommand | StopCommand | StartedEvent | StoppedEvent | MessageCommand,
+                SpawnCommand | StopCommand | StoppedEvent | MessageCommand,
                 dec_hook=decoder,
             ),
             remote=send_ref,
+            registry=reg,
         )
 
         # register as default remote channel so that refs from the wire have a channel associated
         registry: pyctor.types.Registry = pyctor.system.registry.get()
         registry.register_default_remote(send_ref)
-        await n.spawn(receive_actor)
+        await n.spawn(receive_actor, name="system/receive")
 
-    print("Closing...")
+    logger.debug("closing subprocess")
 
 
 if __name__ == "__main__":
