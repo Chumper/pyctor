@@ -38,7 +38,7 @@ class MultiProcessDispatcher(pyctor.types.Dispatcher):
     async def dispatch(
         self,
         behavior: pyctor.types.BehaviorGeneratorFunction[pyctor.types.T],
-        name: str,
+        options: pyctor.types.SpawnOptions,
     ) -> pyctor.types.Ref[pyctor.types.T]:
 
         # check if we need to spawn the multi process server behavior
@@ -49,7 +49,9 @@ class MultiProcessDispatcher(pyctor.types.Dispatcher):
                     behavior=pyctor.multiprocess.server.MultiProcessServerBehavior.create(
                         max_processes=self._processes
                     ),
-                    name=name,
+                    options={
+                        "name": name,
+                    },
                 )
 
         # send message to multi process behavior

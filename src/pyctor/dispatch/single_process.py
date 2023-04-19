@@ -14,32 +14,62 @@ class SingleProcessDispatcher(pyctor.types.Dispatcher):
     """
 
     _nursery: trio.Nursery
+    """
+    The nursery that will be used to spawn new behaviors.
+    """
+    _registry: pyctor.types.Registry
+    """
+    The registry that will be used to register new behaviors.
+    """
 
-    def __init__(self, nursery: trio.Nursery) -> None:
+    def __init__(self, nursery: trio.Nursery, registry: pyctor.types.Registry) -> None:
+        """
+        Initialize the dispatcher.
+        """
         super().__init__()
         self._nursery = nursery
+        self._registry = registry
 
     async def dispatch(
         self,
         behavior: pyctor.types.BehaviorGeneratorFunction[pyctor.types.T],
-        name: str,
+        options: pyctor.types.SpawnOptions,
     ) -> pyctor.types.Ref[pyctor.types.T]:
+
         # define channels
         send: trio.abc.SendChannel
         receive: trio.abc.ReceiveChannel
 
         # create a new memory channel
-        send, receive = trio.open_memory_channel(0)
+        send, receive = trio.open_memory_channel(options["buffer_size"])
+
         # register and get ref
-        ref = await pyctor.system.registry.get().register(name=name, channel=send)
+        ref = await self._registry.register(name=options["name"], channel=send)
+
+        # create the context
+        context = pyctor.context.ContextImpl(ref=ref)
 
         # create the process
         b = pyctor.behavior.process.BehaviorProcessorImpl[pyctor.types.T](
-            behavior=behavior, channel=receive, context=pyctor.context.ContextImpl(ref)
+            behavior=behavior, channel=receive, context=context
         )
 
         # start in the nursery
-        self._nursery.start_soon(b.behavior_task)
+        self._nursery.start_soon(self._behavior_lifecycle_task, b, ref)
 
         # return the ref
         return ref
+
+    async def _behavior_lifecycle_task(
+        self,
+        behavior_process: pyctor.types.BehaviorProcessor,
+        ref: pyctor.types.Ref[pyctor.types.T],
+    ) -> None:
+        """
+        Async task to handle the lifecycle of the behavior.
+        Only here to make sure the behavior gets deregisterd from the registry.
+        """
+        try:
+            await behavior_process.behavior_task()
+        finally:
+            await self._registry.deregister(ref)

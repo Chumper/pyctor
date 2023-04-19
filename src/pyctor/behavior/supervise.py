@@ -7,18 +7,20 @@ import pyctor.types
 logger = getLogger(__name__)
 
 
-class SuperviseBehaviorHandlerImpl(pyctor.types.BehaviorHandler[pyctor.types.T]):
+class SuperviseBehaviorHandlerImpl(
+    pyctor.types.BehaviorFunctionHandler[pyctor.types.T]
+):
     """
     Will wrap a BehaviorHandler in a supervise strategy
     """
 
     _strategy: Callable[[Exception], Awaitable[pyctor.types.BehaviorSignal]]
-    _behavior: pyctor.types.BehaviorHandler[pyctor.types.T]
+    _behavior: pyctor.types.BehaviorFunctionHandler[pyctor.types.T]
 
     def __init__(
         self,
         strategy: Callable[[Exception], Awaitable[pyctor.types.BehaviorSignal]],
-        behavior: pyctor.types.BehaviorHandler[pyctor.types.T],
+        behavior: pyctor.types.BehaviorFunctionHandler[pyctor.types.T],
     ) -> None:
         self._strategy = strategy
         self._behavior = behavior

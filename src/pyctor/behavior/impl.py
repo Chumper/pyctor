@@ -6,10 +6,14 @@ import pyctor.types
 logger = getLogger(__name__)
 
 
-class BehaviorHandlerImpl(pyctor.types.BehaviorHandler[pyctor.types.T]):
+class BehaviorHandlerImpl(pyctor.types.BehaviorFunctionHandler[pyctor.types.T]):
     """
-    Class that all Behaviors need to implement if they want to be handled by Pyctor.
-    This class fullfills the Protocol requirements.
+    A behavior handler is a wrapper around a behavior function.
+    It is used to handle messages of a specific type.
+    Additionally, it can be used to check the type of the message.
+
+    The behavior handler needs to be portable to other processes.
+
     """
 
     _behavior: pyctor.types.BehaviorFunction[pyctor.types.T]

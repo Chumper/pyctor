@@ -13,6 +13,9 @@ msgspec = "^0.9.1"
 pytypes = "^1.0b10"
 cloudpickle = "^2.2.0"
 tricycle = "^0.2.1"
+pytest-trio = "^0.8.0"
+typeguard = "^3.0.2"
+pydantic = "^1.10.7"
 
 [tool.poetry.dev-dependencies]
 black = {version = "^22.10.0", allow-prereleases = true}

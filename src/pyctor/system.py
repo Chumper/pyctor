@@ -32,38 +32,32 @@ class BehaviorNurseryImpl(pyctor.spawn.SpawnerImpl, pyctor.types.BehaviorNursery
 
 
 @asynccontextmanager
-async def open_nursery() -> AsyncGenerator[pyctor.types.BehaviorNursery, None]:
-    try:
-        async with trio.open_nursery() as n:
-            behavior_nursery = BehaviorNurseryImpl(
-                nursery=n,
-                dispatcher=pyctor.dispatch.single_process.SingleProcessDispatcher(
-                    nursery=n
-                ),
-            )
-            nursery.set(behavior_nursery)
-            yield behavior_nursery
-    finally:
-        nursery.set(None)  # type: ignore
-
-
-@asynccontextmanager
-async def open_multiprocess_nursery(
-    processes: int = multiprocessing.cpu_count(),
+async def open_nursery(
+    processes: int = 1,
 ) -> AsyncGenerator[pyctor.types.BehaviorNursery, None]:
     try:
         async with trio.open_nursery() as n:
-            behavior_nursery = BehaviorNurseryImpl(
-                nursery=n,
-                dispatcher=pyctor.dispatch.multi_process.MultiProcessDispatcher(
+            # get registry from run var
+            reg = registry.get()
+            # set single process dispatcher if processes == 1
+            dispatcher = (
+                pyctor.dispatch.single_process.SingleProcessDispatcher(
+                    nursery=n, registry=reg
+                )
+                if processes == 1
+                else pyctor.dispatch.multi_process.MultiProcessDispatcher(
                     nursery=n,
                     processes=processes,
                     dispatcher=pyctor.dispatch.single_process.SingleProcessDispatcher(
-                        nursery=n
+                        nursery=n, registry=reg
                     ),
-                ),
+                )
             )
-            nursery.set(behavior_nursery)
+            behavior_nursery = BehaviorNurseryImpl(
+                nursery=n,
+                dispatcher=dispatcher,
+            )
+            token = nursery.set(behavior_nursery)
             yield behavior_nursery
     finally:
-        nursery.set(None)  # type: ignore
+        nursery.reset(token)  # type: ignore

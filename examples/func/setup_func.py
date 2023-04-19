@@ -10,27 +10,32 @@ Simple functional example to show how to spawn a behavior with setup and teardow
 
 
 async def setup(ctx: Context[str]) -> BehaviorSetup[str]:
-    # setup
+    # our custom setup
     print("behavior setup is running...")
 
+    # define our message handler, this is the same as without the setup
     async def setup_handler(msg: str) -> Behavior[str]:
         print(f"setup behavior received: {msg}")
-        # also send to child_ref
         return Behaviors.Stop
+
+    # still on setup, log our own ref here
+    print(f"My own ref is: {ctx.self().url}")
 
     # yield root behavior
     yield Behaviors.receive(setup_handler)
 
-    # teardown
+    # our custom teardown
     print("behavior teardown is running...")
 
 
 async def main() -> None:
+    # create our new behavior
     setup_behavior = Behaviors.setup(setup)
 
+    # create a nursery and spawn our behavior
     async with pyctor.open_nursery() as n:
         setup_ref = await n.spawn(setup_behavior, name="setup")
-        setup_ref.send(f"Hi from the outside the behavior")
+        setup_ref.send(f"Hi from the outside of the behavior")
 
 
 if __name__ == "__main__":

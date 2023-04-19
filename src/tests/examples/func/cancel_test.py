@@ -2,7 +2,7 @@ import trio
 
 import pyctor
 from pyctor.behaviors import Behaviors
-from pyctor.types import Behavior, BehaviorSetup, Context
+from pyctor.types import Behavior, BehaviorSetup, Context, SpawnOptions
 
 
 def test_cancel():
@@ -18,7 +18,9 @@ def test_cancel():
         counter += 1
 
         async with pyctor.open_nursery() as n:
-            child_ref = await n.spawn(child_behavior, name="parent/child")
+            child_ref = await n.spawn(
+                child_behavior, options=SpawnOptions(name="parent/child")
+            )
 
             async def parent_handler(msg: str) -> Behavior[str]:
                 child_ref.send(msg)
@@ -39,7 +41,9 @@ def test_cancel():
         with trio.fail_after(20):
             setup_behavior = Behaviors.setup(parent_setup)
             async with pyctor.open_nursery() as n:
-                parent_ref = await n.spawn(setup_behavior, name="parent")
+                parent_ref = await n.spawn(
+                    setup_behavior, options=SpawnOptions(name="parent")
+                )
                 parent_ref.send(f"Trigger")
                 await trio.sleep(0)
                 # terminate the system

@@ -2,7 +2,7 @@ import trio
 
 import pyctor
 from pyctor.behaviors import Behaviors
-from pyctor.types import Behavior, BehaviorSetup, Context
+from pyctor.types import Behavior, BehaviorSetup, Context, SpawnOptions
 
 
 def test_restart():
@@ -40,7 +40,9 @@ def test_restart():
         with trio.fail_after(1):
             setup_behavior = Behaviors.setup(setup)
             async with pyctor.open_nursery() as n:
-                setup_ref = await n.spawn(setup_behavior, name="setup")
+                setup_ref = await n.spawn(
+                    setup_behavior, options=SpawnOptions(name="setup")
+                )
                 for i in range(12):
                     setup_ref.send(i)
 

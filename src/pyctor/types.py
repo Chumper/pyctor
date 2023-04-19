@@ -1,6 +1,5 @@
+import uuid
 from abc import ABC, abstractmethod
-from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from typing import (
     Any,
     AsyncContextManager,
@@ -9,26 +8,46 @@ from typing import (
     Callable,
     Generic,
     List,
+    NotRequired,
     Optional,
     Protocol,
-    Tuple,
-    Type,
     TypeAlias,
+    TypedDict,
     TypeVar,
     runtime_checkable,
 )
-from uuid import uuid4
 
 import trio
 from msgspec import Struct
+from pydantic import BaseModel, Field
 
 T = TypeVar("T")
+"""
+Generic type variable for the message type
+"""
+
 U = TypeVar("U")
+"""
+Generic type variable for additional message types
+"""
+
 V = TypeVar("V")
+"""
+Generic type variable for the reply type
+"""
+
+
+class BehaviorSignal(ABC):
+    """
+    A BehaviorSignal is used to indicate a change the state of the Behavior.
+    It is an optimization to avoid the creation of new Behaviors in certain cases.
+    """
+
+    ...  # pragma: no cover
 
 
 @runtime_checkable
-class BehaviorHandler(Protocol[T]):
+class BehaviorFunctionHandler(Protocol[T]):
     """
     Class that all Behaviors need to implement if they want to be handled by the behavior system.
     This class fullfills the Protocol requirements needed to handle the internals.
@@ -43,17 +62,29 @@ class BehaviorHandler(Protocol[T]):
         ...  # pragma: no cover
 
 
-class BehaviorSignal(ABC):
-    ...  # pragma: no cover
-
-
 class Context(Generic[T]):
+    """
+    A Context is useful for behaviors that need a reference to itself or need other functionality to interact with its own behavior.
+    A Context will only be provided if the behavior is initialized with a context manager, it will then get its own context as argument
+    """
+
     @abstractmethod
     def self(self) -> "Ref[T]":
+        """
+        Returns a Ref to the behavior this context belongs to.
+        Can be useful if the own Ref needs to be send other behaviors (e.g. children).
+        """
         ...
 
     @abstractmethod
     async def watch(self, ref: "Ref[U]", msg: T):
+        """
+        Will watch the given Ref and send the given message to the behavior
+        this context belongs to when the watched Ref is terminated.
+
+        Watching the Ref of the behavior of this context makes no sense and will
+        not work because the message cannot be handled after the behavior stopped.
+        """
         ...
 
     # @abstractmethod
@@ -67,25 +98,39 @@ class Context(Generic[T]):
     #     ...
 
 
-BehaviorGenerator: TypeAlias = AsyncContextManager[BehaviorHandler[T]]
+BehaviorGenerator: TypeAlias = AsyncContextManager[BehaviorFunctionHandler[T]]
 """
-A ContextManager that will yield a BehaviorHandler that can be used to handle messages
+A BehaviorGenerator is a context manager that will return a BehaviorHandler.
 """
 
 BehaviorGeneratorFunction: TypeAlias = Callable[[Context[T]], BehaviorGenerator[T]]
+"""
+A BehaviorGeneratorFunction is a function that takes a context and returns a BehaviorGenerator.
+"""
 
 Behavior: TypeAlias = Callable[[Context[T]], BehaviorGenerator[T]] | BehaviorSignal
 """
-The basic building block of everything.
-A Behavior defines how an actor will handle a message and will return a Behavior for the next message.
+The base building block for everything.
+A Behavior simply defines how to handle a message. 
+A Behavior can return a new Behavior (or the same) for the next message.
+Additionally a Behavior can return a BehaviorSignal to change the state of itself.
 """
 
 BehaviorFunction: TypeAlias = Callable[[T], Awaitable[Behavior[T]]]
 """
-Type alias to define a function that can handle a generic message and returns a Behavior 
+A BehaviorFunction is a function that takes a message and returns a Behavior.
 """
 
 BehaviorSetup: TypeAlias = AsyncGenerator[BehaviorGeneratorFunction[T], None]
+"""	
+A BehaviorSetup is a generator that will yield a BehaviorGeneratorFunction.
+The BehaviorGeneratorFunction will be used to setup the behavior for the next message.
+"""
+
+
+class SpawnOptions(TypedDict):
+    name: NotRequired[str]
+    buffer_size: NotRequired[int]
 
 
 class Spawner(ABC):
@@ -98,7 +143,7 @@ class Spawner(ABC):
     async def spawn(
         self,
         behavior: BehaviorGeneratorFunction[T],
-        name: str | None = None,
+        options: SpawnOptions | None = None,
     ) -> "Ref[T]":
         """
         Will spawn the given Behavior in the context of the integrated class.
@@ -153,7 +198,7 @@ class Ref(Generic[T], ABC):
     registry: str
     """
     The registry that the ref belongs to. 
-    It is the registry of the process that spawned the behavior
+    It is the registry of the process that spawned the behavior.
     """
     name: str
     """
@@ -207,14 +252,25 @@ class MessageStrategy(Generic[T], ABC):
 
     @abstractmethod
     def transform_send_message(self, me: Ref[T], msg: T) -> Any:
+        """
+        This method will be called before a message is send to a Ref.
+        """
         ...
 
     @abstractmethod
     def transform_stop_message(self, me: Ref[T]) -> Optional[Any]:
+        """
+        This method will be called before a stop message is send to a Ref.
+        """
         ...
 
 
 class Sender:
+    """
+    This class is used to send messages to a Ref.
+    It is used by the Context to send messages to the behavior.
+    """
+
     def send(self, ref: Ref[T], msg: T) -> None:
         """
         TBD
@@ -241,6 +297,11 @@ class Sender:
 
 
 class BehaviorNursery(Spawner):
+    """
+    A BehaviorNursery is a Spawner that spawns Behaviors in a nursery.
+    It is used by the Context to spawn children.
+    """
+
     _nursery: trio.Nursery
 
 
@@ -252,9 +313,7 @@ class Dispatcher(ABC):
     """
 
     async def dispatch(
-        self,
-        behavior: BehaviorGeneratorFunction[T],
-        name: str,
+        self, behavior: BehaviorGeneratorFunction[T], options: SpawnOptions
     ) -> Ref[T]:
         """
         Spawns the given behavior in a process and provides the Ref to the spawned behavior
@@ -277,9 +336,14 @@ class Stash(Generic[T], ABC):
 
 
 class Registry:
-    @abstractmethod
-    def set_index(self, index: int) -> None:
-        ...
+    """
+    The Registry is responsible to keep track of all the refs that are registered in the current process.
+    """
+
+    url: str
+    """
+    The URL of the registry
+    """
 
     @abstractmethod
     async def watch(self, ref: Ref[T], watcher: Ref[U], msg: U) -> None:
@@ -302,10 +366,6 @@ class Registry:
         ...
 
     @abstractmethod
-    def register_default_remote(self, ref: Ref[T]) -> None:
-        ...
-
-    @abstractmethod
     async def register_remote(self, registry: str, ref: Ref[T]) -> None:
         ...
 
@@ -319,4 +379,11 @@ class Timer:
 
 
 class StoppedEvent(Struct, tag_field="msg_type", tag=str.lower):
+    """
+    This event indicates that a behavior has stopped.
+    """
+
     ref: Ref[Any]
+    """
+    The ref of the stopped behavior
+    """

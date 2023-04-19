@@ -33,14 +33,30 @@ class RefImpl(pyctor.types.Ref[pyctor.types.T]):
     The combination of the registry and the name is the url
     """
 
+    _registry: pyctor.types.Registry
+    """
+    The registry that this ref is registered with in this process.
+    This can be the the registry that spawned the underlying behavior (for local refs)
+    or it is a registry that can handle messages for this ref to the original process (for remote refs).
+    """
+
     def __init__(
-        self, registry: str, name: str, strategy: pyctor.types.MessageStrategy
+        self,
+        registry: str,
+        name: str,
+        strategy: pyctor.types.MessageStrategy,
+        managing_registry: pyctor.types.Registry,
     ) -> None:
+        """
+        Create a new ref.
+        Accepts a registry url, a name and a message strategy.
+        """
         super().__init__()
         self.registry = registry
         self.name = name
         self.url = self.registry + self.name
         self.strategy = strategy
+        self._registry = managing_registry
 
     async def _internal_send(
         self,
@@ -76,7 +92,9 @@ class RefImpl(pyctor.types.Ref[pyctor.types.T]):
         async with pyctor.system.open_nursery() as n:
             reply_ref = await n.spawn(
                 pyctor.behaviors.Behaviors.receive(receive_behavior),
-                name=f"ask-{uuid.uuid4()}",
+                options={
+                    "name": f"ask-{uuid.uuid4()}",
+                },
             )
             msg = f(reply_ref)
             # python has no intersection type...
@@ -85,28 +103,27 @@ class RefImpl(pyctor.types.Ref[pyctor.types.T]):
         return response  # type: ignore
 
     def send(self, msg: pyctor.types.T) -> None:
-        # get channel from registry
-        registry: pyctor.types.Registry = pyctor.system.registry.get()
-        channel = registry.channel_from_ref(self)
-        # get nursery from context var
+
         msg = self.strategy.transform_send_message(self, msg)
 
+        # get nursery from context var
         nursery = pyctor.system.nursery.get()
         if not nursery:
             raise RuntimeError("No nursery to send message")
+
+        # get channel from registry
+        channel: trio.abc.SendChannel = self._registry.channel_from_ref(self)
         nursery._nursery.start_soon(self._internal_send, channel, msg)
 
     def stop(self) -> None:
-        # get channel from registry
-        registry: pyctor.types.Registry = pyctor.system.registry.get()
-        channel: trio.abc.SendChannel = registry.channel_from_ref(self)
-
         msg = self.strategy.transform_stop_message(self)
 
         # get nursery from context var
         nursery = pyctor.system.nursery.get()
         if not nursery:
             raise RuntimeError("No nursery to send message")
+        # get channel from registry
+        channel: trio.abc.SendChannel = self._registry.channel_from_ref(self)
         if msg:
             nursery._nursery.start_soon(self._internal_send, channel, msg)
         else:

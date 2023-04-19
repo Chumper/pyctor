@@ -36,14 +36,20 @@ class SpawnerImpl(pyctor.types.Spawner):
     async def spawn(
         self,
         behavior: pyctor.types.BehaviorGeneratorFunction[pyctor.types.T],
-        name: str | None = None,
+        options: pyctor.types.SpawnOptions | None = None,
     ) -> pyctor.types.Ref[pyctor.types.T]:
+        if not options:
+            options = {}
 
-        if not name:
-            name = str(uuid4())
+        if "name" not in options:
+            options["name"] = str(uuid4())
+            print(f"no name given for behavior, using {options['name']}")
+        if "buffer_size" not in options:
+            options["buffer_size"] = 0
 
-        ref = await self._dispatcher.dispatch(behavior=behavior, name=name)
-        # append to array
+        ref = await self._dispatcher.dispatch(behavior=behavior, options=options)
+
+        # append to child array
         self._children.append(ref)  # type: ignore
         # return the ref
         return ref

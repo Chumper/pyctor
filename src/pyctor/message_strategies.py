@@ -1,3 +1,4 @@
+from enum import Enum
 from logging import getLogger
 from typing import Any, Optional
 
@@ -57,3 +58,7 @@ class RemoteMessageStrategy(pyctor.types.MessageStrategy[pyctor.types.T]):
         Send a StopCommand to the remote ref
         """
         return pyctor.multiprocess.messages.StopCommand(me)
+
+
+LOCAL: pyctor.types.MessageStrategy = LocalMessageStrategy()
+REMOTE: pyctor.types.MessageStrategy = RemoteMessageStrategy()
