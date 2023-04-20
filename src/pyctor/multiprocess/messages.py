@@ -16,7 +16,7 @@ class MultiProcessMessage(Struct, tag_field="msg_type", tag=str.lower):
 class SpawnCommand(MultiProcessMessage):
     reply_to: pyctor.types.Ref[pyctor.types.Ref[Any]]
     behavior: bytes
-    name: str
+    options: pyctor.types.SpawnOptions
 
 
 class StopCommand(MultiProcessMessage):

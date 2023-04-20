@@ -93,9 +93,7 @@ class RegistryImpl(pyctor.types.Registry):
         async with self._lock:
             if ref.url in self._watchers:
                 # add to watcher
-                self._watchers[ref.url].append(
-                    RegistryImpl.WatcherEntry(ref=watcher, msg=msg)
-                )
+                self._watchers[ref.url].append(RegistryImpl.WatcherEntry(ref=watcher, msg=msg))
             else:
                 # if the ref does not exist in this registry,
                 # then we send the message to the watcher immediately
@@ -165,9 +163,7 @@ class RegistryImpl(pyctor.types.Registry):
             self._watchers[self.url + name] = []
         return self._registry[self.url + name][0]
 
-    async def register_remote(
-        self, registry: str, ref: pyctor.types.Ref[pyctor.types.T]
-    ) -> None:
+    async def register_remote(self, registry: str, ref: pyctor.types.Ref[pyctor.types.T]) -> None:
         """
         Register a remote ref. This is used to register a ref that is owned by another registry.
         Raises a ValueError if the ref is already registered.
@@ -177,9 +173,7 @@ class RegistryImpl(pyctor.types.Registry):
                 raise ValueError(f"Ref '{ref.url}' is already registered")
             self._remotes[registry] = self.channel_from_ref(ref)
 
-    def ref_from_raw(
-        self, registry: str, name: str
-    ) -> pyctor.types.Ref[pyctor.types.T]:
+    def ref_from_raw(self, registry: str, name: str) -> pyctor.types.Ref[pyctor.types.T]:
         """
         Create a ref from a raw registry and name.
         Mainly used when a ref is received from a the wire e.g. msgpack."""
@@ -194,21 +188,15 @@ class RegistryImpl(pyctor.types.Registry):
                 self._lock.acquire_nowait()
                 default_remote = self._default_remote if self._default_remote else None
                 self._registry[registry + name] = (
-                    pyctor.ref.RefImpl(
-                        registry=registry, name=name, strategy=remoteMessageStrategy
-                    ),
+                    pyctor.ref.RefImpl(registry=registry, name=name, strategy=remoteMessageStrategy),
                     self._remotes.get(registry, default_remote),
                 )
                 self._lock.release()
                 return self._registry[registry + name][0]
             except trio.WouldBlock:
-                return pyctor.ref.RefImpl(
-                    registry=registry, name=name, strategy=remoteMessageStrategy
-                )
+                return pyctor.ref.RefImpl(registry=registry, name=name, strategy=remoteMessageStrategy)
 
-    def channel_from_ref(
-        self, ref: pyctor.types.Ref[pyctor.types.T]
-    ) -> trio.abc.SendChannel[pyctor.types.T]:
+    def channel_from_ref(self, ref: pyctor.types.Ref[pyctor.types.T]) -> trio.abc.SendChannel[pyctor.types.T]:
         """
         Get the channel from a ref.
         If the ref is not available, then the fallback channel is used.

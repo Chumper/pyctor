@@ -24,7 +24,7 @@ async def even_handler(msg: int) -> Behavior[int]:
 
 
 async def main() -> None:
-    print("Actor System is starting up")
+    print("Behavior System is starting up")
     initial_behavior = Behaviors.receive(odd_handler)
 
     async with pyctor.open_nursery() as n:
@@ -37,10 +37,10 @@ async def main() -> None:
 
         await trio.sleep(1)
 
-        # stop the system, otherwise actors will stay alive forever
+        # stop the system, otherwise behaviors will stay alive forever
         await n.stop()
 
-    print("Actor System was shut down")
+    print("Behavior System was shut down")
 
 
 if __name__ == "__main__":

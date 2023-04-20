@@ -205,23 +205,9 @@ class Ref(Generic[T], ABC):
     The name of the behavior inside the registry, is unique with this registry.
     """
 
-    def send_nowait(self, msg: T) -> None:
-        """
-        TBD
-        """
-        ...  # pragma: no cover
-
     def send(self, msg: T) -> None:
         """
         TBD
-        """
-        ...  # pragma: no cover
-
-    def stop_nowait(self) -> None:
-        """
-        EXPERIMENTAL: Not sure yet if this should stay.
-
-        Will send a system message to the behavior to stop the behavior and all of its children.
         """
         ...  # pragma: no cover
 
@@ -312,9 +298,7 @@ class Dispatcher(ABC):
     Currently supported are a single process dispatcher and a multi process dispatcher.
     """
 
-    async def dispatch(
-        self, behavior: BehaviorGeneratorFunction[T], options: SpawnOptions
-    ) -> Ref[T]:
+    async def dispatch(self, behavior: BehaviorGeneratorFunction[T], options: SpawnOptions) -> Ref[T]:
         """
         Spawns the given behavior in a process and provides the Ref to the spawned behavior
         """

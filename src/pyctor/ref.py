@@ -1,3 +1,4 @@
+import os
 import uuid
 from logging import getLogger
 from typing import Any, Callable, Optional
@@ -12,6 +13,11 @@ logger = getLogger(__name__)
 
 
 class RefImpl(pyctor.types.Ref[pyctor.types.T]):
+    """
+    A ref implementation that is used for local and remote refs.
+    This is the main reference that is being used in the system.
+    """
+    
     strategy: pyctor.types.MessageStrategy
     """
     The strategy to use when messages should be send to this ref
@@ -129,3 +135,86 @@ class RefImpl(pyctor.types.Ref[pyctor.types.T]):
         else:
             # close the sending channel
             nursery._nursery.start_soon(channel.aclose)
+
+
+class SystemRefImpl(pyctor.types.Ref[pyctor.types.T]):
+    """
+    A ref implementation that is as a special case for the system ref.
+    A system ref is only known to the process it is created in and is not registered in any registry.
+    The creator of the ref is responsible for cleaning up the ref and all resources associated with it.
+    The system ref is tied to a specific channel and can only be used in the process it was created in.
+    """
+    
+    registry: str = "system-ref"
+    name: str
+    url: str = "system-url"
+
+    _channel: trio.abc.SendChannel[pyctor.types.T]
+    """
+    The channel that this ref is tied to.
+    """
+    _nursery: trio.Nursery
+    """
+    The nursery that this ref is tied to.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        channel: trio.abc.SendChannel[pyctor.types.T],
+        nursery: trio.Nursery,
+    ) -> None:
+        super().__init__()
+        self.name = name
+        self.url = self.registry + self.name
+        self._channel = channel
+        self._nursery = nursery
+
+    async def _internal_send(
+        self,
+        msg: pyctor.types.T,
+        task_status=trio.TASK_STATUS_IGNORED,
+    ) -> None:
+        try:
+            await self._channel.send(msg)
+        except Exception:
+            pass
+        finally:
+            task_status.started()
+
+    async def ask(
+        self,
+        f: Callable[
+            [pyctor.types.Ref[pyctor.types.V]],
+            pyctor.types.ReplyProtocol[pyctor.types.V],
+        ],
+    ) -> pyctor.types.V:
+        # spawn a new behavior that takes a V as message and then immediately stops
+        response: pyctor.types.V
+        # spawn behavior
+        async def receive_behavior(
+            msg: pyctor.types.V,
+        ) -> pyctor.types.Behavior[pyctor.types.V]:
+            nonlocal response
+            response = msg
+            return pyctor.behaviors.Behaviors.Stop
+
+        async with pyctor.system.open_nursery() as n:
+            reply_ref = await n.spawn(
+                pyctor.behaviors.Behaviors.receive(receive_behavior),
+                options={
+                    "name": f"ask-{uuid.uuid4()}",
+                },
+            )
+            msg = f(reply_ref)
+            # python has no intersection type...
+            self.send(msg)  # type: ignore
+
+        return response  # type: ignore
+
+    def send(self, msg: pyctor.types.T) -> None:
+        self._nursery.start_soon(self._internal_send, msg)
+
+    def stop(self) -> None:
+        # close the sending channel
+        self._nursery.start_soon(self._channel.aclose)

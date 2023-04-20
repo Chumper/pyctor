@@ -28,10 +28,10 @@ async def main() -> None:
     async with pyctor.open_nursery() as n:
         parent_ref = await n.spawn(setup_behavior, name="parent")
 
-        parent_ref.send(f"Hi from the ActorSystem")
+        parent_ref.send(f"Hi from the Behavior system")
 
         await trio.sleep(1)
-        # stop the system, otherwise actors will stay alive forever
+        # stop the system, otherwise behaviors will stay alive forever
         await n.stop()
     print("behavior tree was shut down")
 

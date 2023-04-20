@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "pyctor"
 version = "0.1.0"
-description = "A Python Actor Framework with asyncio"
+description = "Trio Typed Behaviors for reactive stateful applications"
 authors = ["Nils Plaschke <Chumper@users.noreply.github.com>"]
 license = "MIT"
 

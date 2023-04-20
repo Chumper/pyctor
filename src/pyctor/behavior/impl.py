@@ -27,15 +27,8 @@ class BehaviorHandlerImpl(pyctor.types.BehaviorFunctionHandler[pyctor.types.T]):
         self._behavior = behavior
         self._type = type_check
 
-    async def handle(
-        self, msg: pyctor.types.T
-    ) -> pyctor.types.Behavior[pyctor.types.T]:
+    async def handle(self, msg: pyctor.types.T) -> pyctor.types.Behavior[pyctor.types.T]:
         if self._type:
             # if the type is given, we assert on it here
-            assert issubclass(type(msg), self._type), (
-                "Can only handle messages derived from type "
-                + str(self._type)
-                + ", got "
-                + str(type(msg))
-            )
+            assert issubclass(type(msg), self._type), "Can only handle messages derived from type " + str(self._type) + ", got " + str(type(msg))
         return await self._behavior(msg)

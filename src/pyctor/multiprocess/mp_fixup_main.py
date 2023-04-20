@@ -77,9 +77,7 @@ def _fixup_main_from_name(mod_name: str) -> None:
     # the normal __main__ an alias to that
     # old_main_modules.append(current_main)
     main_module = types.ModuleType("__mp_main__")
-    main_content = runpy.run_module(
-        mod_name, run_name="__mp_main__", alter_sys=True
-    )  # type: ignore
+    main_content = runpy.run_module(mod_name, run_name="__mp_main__", alter_sys=True)  # type: ignore
     main_module.__dict__.update(main_content)
     sys.modules["__main__"] = sys.modules["__mp_main__"] = main_module
 

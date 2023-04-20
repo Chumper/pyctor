@@ -12,8 +12,6 @@ class ContextImpl(pyctor.types.Context[pyctor.types.T]):
     def self(self) -> pyctor.types.Ref[pyctor.types.T]:
         return self._ref
 
-    async def watch(
-        self, ref: pyctor.types.Ref[pyctor.types.U], msg: pyctor.types.T
-    ) -> None:
+    async def watch(self, ref: pyctor.types.Ref[pyctor.types.U], msg: pyctor.types.T) -> None:
         registry: pyctor.types.Registry = pyctor.system.registry.get()
         await registry.watch(ref=ref, watcher=self._ref, msg=msg)

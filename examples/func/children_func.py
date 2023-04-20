@@ -20,7 +20,7 @@ async def parent_setup(ctx: Context[str]) -> BehaviorSetup[str]:
     child_behavior = Behaviors.receive(child_handler)
 
     async with pyctor.open_nursery() as n:
-        child_ref = await n.spawn(child_behavior, name="parent/child")
+        child_ref = await n.spawn(child_behavior, options={"name": "parent/child"})
 
         async def parent_handler(msg: str) -> Behavior[str]:
             print(f"parent behavior received: {msg}")
@@ -33,19 +33,19 @@ async def parent_setup(ctx: Context[str]) -> BehaviorSetup[str]:
 
         # stop the nursery, otherwise children will continue to run...
         # Be a responsible parent!
-        await n.stop()
+        n.stop_all()
 
 
 async def main() -> None:
     setup_behavior = Behaviors.setup(parent_setup)
     async with pyctor.open_nursery() as n:
-        parent_ref = await n.spawn(setup_behavior, name="parent")
+        parent_ref = await n.spawn(setup_behavior, options={"name": "parent"})
 
         parent_ref.send(f"Hi from the behavior system")
 
         await trio.sleep(1)
-        # stop the system, otherwise actors will stay alive forever
-        await n.stop()
+        # stop the system, otherwise behaviors will stay alive forever
+        n.stop_all()
 
 
 if __name__ == "__main__":

@@ -27,11 +27,11 @@ def test_multiprocess():
 
         print(f"main: {os.getpid()}")
 
-        async with pyctor.open_multiprocess_nursery(processes=num_processes) as n:
+        async with pyctor.open_nursery(processes=num_processes) as n:
             refs: List[Ref[PIDRequest]] = []
             # spawn processes
             for i in range(num_processes):
-                ref = await n.spawn(message_behavior, name=f"user/worker-{i}")
+                ref = await n.spawn(message_behavior, {"name": f"user/worker-{i}"})
                 refs.append(ref)
             # all spawned, get pid
             for ref in refs:
@@ -46,8 +46,8 @@ def test_multiprocess():
             assert pid not in pids
             pids.add(pid)
 
-    # trio.run(main)
-    # assert len(pids) == num_processes + 1
+    trio.run(main)
+    assert len(pids) == num_processes + 1
 
 
 if __name__ == "__main__":

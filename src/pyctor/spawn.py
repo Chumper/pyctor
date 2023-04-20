@@ -19,9 +19,7 @@ class SpawnerImpl(pyctor.types.Spawner):
 
     _dispatcher: pyctor.types.Dispatcher
 
-    def __init__(
-        self, nursery: trio.Nursery, dispatcher: pyctor.types.Dispatcher
-    ) -> None:
+    def __init__(self, nursery: trio.Nursery, dispatcher: pyctor.types.Dispatcher) -> None:
         self._nursery = nursery
         self._dispatcher = dispatcher
         self._children = []
@@ -38,15 +36,6 @@ class SpawnerImpl(pyctor.types.Spawner):
         behavior: pyctor.types.BehaviorGeneratorFunction[pyctor.types.T],
         options: pyctor.types.SpawnOptions | None = None,
     ) -> pyctor.types.Ref[pyctor.types.T]:
-        if not options:
-            options = {}
-
-        if "name" not in options:
-            options["name"] = str(uuid4())
-            print(f"no name given for behavior, using {options['name']}")
-        if "buffer_size" not in options:
-            options["buffer_size"] = 0
-
         ref = await self._dispatcher.dispatch(behavior=behavior, options=options)
 
         # append to child array
