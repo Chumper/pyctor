@@ -4,13 +4,7 @@ from typing import AsyncGenerator, Callable
 import trio
 
 from pyctor.behaviors import Behaviors
-from pyctor.types import (
-    Behavior,
-    BehaviorFunctionHandler,
-    BehaviorGenerator,
-    BehaviorSetup,
-    T,
-)
+from pyctor.types import Behavior, BehaviorFunctionHandler, BehaviorGenerator, BehaviorSetup, T
 
 
 async def handle(msg: str) -> Behavior[str]:

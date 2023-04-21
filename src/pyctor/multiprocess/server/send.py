@@ -5,12 +5,7 @@ import msgspec
 import trio
 
 import pyctor
-from pyctor.multiprocess.messages import (
-    MessageCommand,
-    MultiProcessMessage,
-    SpawnCommand,
-    StopCommand,
-)
+from pyctor.multiprocess.messages import MessageCommand, MultiProcessMessage, SpawnCommand, StopCommand
 from pyctor.types import StoppedEvent
 
 logger = getLogger(__name__)
@@ -26,9 +21,7 @@ class MultiProcessServerConnectionSendActor:
     _encoder: msgspec.msgpack.Encoder
     _context: pyctor.types.Context[MultiProcessMessage]
 
-    def __init__(
-        self, stream: trio.SocketStream, encoder: msgspec.msgpack.Encoder
-    ) -> None:
+    def __init__(self, stream: trio.SocketStream, encoder: msgspec.msgpack.Encoder) -> None:
         self._stream = stream
         self._encoder = encoder
 
@@ -43,28 +36,14 @@ class MultiProcessServerConnectionSendActor:
             logger.exception(e)
             self._context.self().stop()
 
-    async def setup(
-        self, ctx: pyctor.types.Context[MultiProcessMessage]
-    ) -> pyctor.types.BehaviorSetup[MultiProcessMessage]:
+    async def setup(self, ctx: pyctor.types.Context[MultiProcessMessage]) -> pyctor.types.BehaviorSetup[MultiProcessMessage]:
         self._context = ctx
 
         logger.debug("MultiProcess Server Send Actor started")
 
         # first send encoder and decoder to child process
-        await self.send(
-            cloudpickle.dumps(
-                pyctor.multiprocess.messages.encode_func(
-                    pyctor.configuration._custom_encoder_function
-                )
-            )
-        )
-        await self.send(
-            cloudpickle.dumps(
-                pyctor.multiprocess.messages.decode_func(
-                    pyctor.configuration._custom_decoder_function
-                )
-            )
-        )
+        await self.send(cloudpickle.dumps(pyctor.multiprocess.messages.encode_func(pyctor.configuration._custom_encoder_function)))
+        await self.send(cloudpickle.dumps(pyctor.multiprocess.messages.decode_func(pyctor.configuration._custom_decoder_function)))
 
         logger.debug("Sent encoder and decoder to child process")
 
@@ -93,14 +72,10 @@ class MultiProcessServerConnectionSendActor:
         yield pyctor.behaviors.Behaviors.receive(setup_handler)
 
     @staticmethod
-    def create(
-        stream: trio.SocketStream, encoder: msgspec.msgpack.Encoder
-    ) -> pyctor.types.BehaviorGeneratorFunction[MultiProcessMessage]:
+    def create(stream: trio.SocketStream, encoder: msgspec.msgpack.Encoder) -> pyctor.types.BehaviorGeneratorFunction[MultiProcessMessage]:
         async def ignore(e: Exception) -> pyctor.types.BehaviorSignal:
             logger.error(e)
             return pyctor.behaviors.Behaviors.Stop
 
-        setup = pyctor.behaviors.Behaviors.setup(
-            MultiProcessServerConnectionSendActor(stream=stream, encoder=encoder).setup
-        )
+        setup = pyctor.behaviors.Behaviors.setup(MultiProcessServerConnectionSendActor(stream=stream, encoder=encoder).setup)
         return pyctor.behaviors.Behaviors.supervise(strategy=ignore, behavior=setup)

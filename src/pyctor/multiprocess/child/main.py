@@ -13,10 +13,7 @@ import trio
 import pyctor
 import pyctor.configuration
 import pyctor.registry
-from pyctor.configuration import (
-    set_custom_decoder_function,
-    set_custom_encoder_function,
-)
+from pyctor.configuration import set_custom_decoder_function, set_custom_encoder_function
 from pyctor.dispatch.single_process import spawn_system_behavior
 from pyctor.multiprocess.child.receive import MultiProcessChildConnectionReceiveBehavior
 from pyctor.multiprocess.child.send import MultiProcessChildConnectionSendActor
@@ -41,12 +38,8 @@ async def get_callable(stream: tricycle.BufferedReceiveStream) -> Any:
 
 def get_arg() -> Tuple[int, int, str]:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-p", "--port", help="Port for the multi processing", required=True
-    )
-    parser.add_argument(
-        "-i", "--index", help="Index of this multi processing process", required=True
-    )
+    parser.add_argument("-p", "--port", help="Port for the multi processing", required=True)
+    parser.add_argument("-i", "--index", help="Index of this multi processing process", required=True)
     parser.add_argument("-l", "--log-level", help="Log level", required=True)
     args = parser.parse_args()
     return int(args.port), int(args.index), str(args.log_level)
@@ -76,9 +69,7 @@ async def main() -> None:
     logger.debug("encoder and decoder received")
 
     # create the send actor, which will send messages to the parent process
-    send_actor = MultiProcessChildConnectionSendActor.create(
-        stream=stream, encoder=msgspec.msgpack.Encoder(enc_hook=encoder)
-    )
+    send_actor = MultiProcessChildConnectionSendActor.create(stream=stream, encoder=msgspec.msgpack.Encoder(enc_hook=encoder))
 
     # start a trio nursery
     async with trio.open_nursery() as n:

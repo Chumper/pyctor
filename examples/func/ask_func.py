@@ -38,9 +38,7 @@ async def main() -> None:
         # spawn the behavior
         message_ref = await n.spawn(message_behavior, name="Answerer")
 
-        answer = await message_ref.ask(
-            lambda x: Question(question="Is this the real life?", reply_to=x)
-        )
+        answer = await message_ref.ask(lambda x: Question(question="Is this the real life?", reply_to=x))
         print(f"Answer: {answer}")
 
     print("behavior tree was shut down")

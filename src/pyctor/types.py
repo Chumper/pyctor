@@ -298,9 +298,7 @@ class Dispatcher(ABC):
     Currently supported are a single process dispatcher and a multi process dispatcher.
     """
 
-    async def dispatch(
-        self, behavior: BehaviorGeneratorFunction[T], options: SpawnOptions
-    ) -> Ref[T]:
+    async def dispatch(self, behavior: BehaviorGeneratorFunction[T], options: SpawnOptions) -> Ref[T]:
         """
         Spawns the given behavior in a process and provides the Ref to the spawned behavior
         """

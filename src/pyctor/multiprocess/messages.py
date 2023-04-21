@@ -6,6 +6,7 @@ from msgspec import Raw, Struct
 
 import pyctor.ref
 import pyctor.system
+import pyctor.testing
 import pyctor.types
 
 

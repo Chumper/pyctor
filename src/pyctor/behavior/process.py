@@ -77,9 +77,7 @@ class BehaviorProcessorImpl(pyctor.types.BehaviorProcessor, Generic[pyctor.types
                                 match new_behavior:
                                     # message has not been handled
                                     case pyctor.behaviors.Behaviors.Ignore:
-                                        logger.warning(
-                                            "Ignoring message: %s", type(msg)
-                                        )
+                                        logger.warning("Ignoring message: %s", type(msg))
                                     # behavior has not changed
                                     case pyctor.behaviors.Behaviors.Same:
                                         pass

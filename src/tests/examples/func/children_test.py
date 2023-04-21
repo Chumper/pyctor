@@ -17,9 +17,7 @@ def test_children():
         child_behavior = Behaviors.receive(child_handler)
 
         async with pyctor.open_nursery() as n:
-            child_ref = await n.spawn(
-                child_behavior, options=SpawnOptions(name="parent/child")
-            )
+            child_ref = await n.spawn(child_behavior, options=SpawnOptions(name="parent/child"))
 
             async def parent_handler(msg: str) -> Behavior[str]:
                 nonlocal counter
@@ -33,9 +31,7 @@ def test_children():
         with trio.fail_after(1):
             setup_behavior = Behaviors.setup(parent_setup)
             async with pyctor.open_nursery() as n:
-                parent_ref = await n.spawn(
-                    setup_behavior, options=SpawnOptions(name="parent")
-                )
+                parent_ref = await n.spawn(setup_behavior, options=SpawnOptions(name="parent"))
                 parent_ref.send(f"Trigger")
 
     trio.run(main)
