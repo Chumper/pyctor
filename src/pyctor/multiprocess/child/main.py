@@ -13,9 +13,12 @@ import trio
 import pyctor
 import pyctor.configuration
 import pyctor.registry
-from pyctor.configuration import set_custom_decoder_function, set_custom_encoder_function
+from pyctor.configuration import (
+    set_custom_decoder_function,
+    set_custom_encoder_function,
+)
 from pyctor.dispatch.single_process import spawn_system_behavior
-from pyctor.multiprocess.child.receive import MultiProcessChildConnectionReceiveActor
+from pyctor.multiprocess.child.receive import MultiProcessChildConnectionReceiveBehavior
 from pyctor.multiprocess.child.send import MultiProcessChildConnectionSendActor
 from pyctor.multiprocess.messages import MessageCommand, SpawnCommand, StopCommand
 from pyctor.types import StoppedEvent
@@ -38,8 +41,12 @@ async def get_callable(stream: tricycle.BufferedReceiveStream) -> Any:
 
 def get_arg() -> Tuple[int, int, str]:
     parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--port", help="Port for the multi processing", required=True)
-    parser.add_argument("-i", "--index", help="Index of this multi processing process", required=True)
+    parser.add_argument(
+        "-p", "--port", help="Port for the multi processing", required=True
+    )
+    parser.add_argument(
+        "-i", "--index", help="Index of this multi processing process", required=True
+    )
     parser.add_argument("-l", "--log-level", help="Log level", required=True)
     args = parser.parse_args()
     return int(args.port), int(args.index), str(args.log_level)
@@ -69,43 +76,41 @@ async def main() -> None:
     logger.debug("encoder and decoder received")
 
     # create the send actor, which will send messages to the parent process
-    send_actor = MultiProcessChildConnectionSendActor.create(stream=stream, encoder=msgspec.msgpack.Encoder(enc_hook=encoder))
-
-    # create the receive actor, which will receive messages from the parent process
-    receive_actor = MultiProcessChildConnectionReceiveActor.create(
-        stream=s,
-        decoder=msgspec.msgpack.Decoder(
-            SpawnCommand | StopCommand | StoppedEvent | MessageCommand,
-            dec_hook=decoder,
-        ),
-        registry=reg,
+    send_actor = MultiProcessChildConnectionSendActor.create(
+        stream=stream, encoder=msgspec.msgpack.Encoder(enc_hook=encoder)
     )
 
-    # # start a trio nursery
-    # async with trio.open_nursery() as n:
-    #     # spawn the system ref for the send behavior
-    #     ref = spawn_system_behavior(behavior=send_actor, nursery=n, name="system/send")
-        
-    #     # create a new registry
-    #     reg = pyctor.registry.RegistryImpl(
-    #         name=f"{platform.node().lower()}/{registry_index}",
-    #         fallback=
-    #     )
+    # start a trio nursery
+    async with trio.open_nursery() as n:
+        # spawn the system ref for the send behavior
+        ref = await spawn_system_behavior(
+            behavior=send_actor,
+            nursery=n,
+            options={"name": f"child/{registry_index}/send"},
+        )
 
-    #     pyctor.system.registry.set(reg)
-        
+        # create a new registry
+        reg = pyctor.registry.RegistryImpl(
+            name=f"{platform.node().lower()}/{registry_index}",
+            fallback=ref._channel,
+        )
+        # set the registry as the default registry
+        pyctor.system.registry.set(reg)
 
-    # as we are already a child process we should not start a multi process nursery
-    # instead we will be a good child and only spawn new behaviors in our own process.
-    async with pyctor.open_nursery() as n:
-        
-        # start two behaviors, one for receiving, one for sending from the stream
-        send_ref = await n.spawn(send_actor, options={"name": "system/send"})
-
-        # register as default remote channel so that refs from the wire have a channel associated
-        registry: pyctor.types.Registry = pyctor.system.registry.get()
-        registry.register_default_remote(send_ref)
-        await n.spawn(receive_actor, options={"name": "system/receive"})
+        # create the receive actor, which will receive messages from the parent process
+        receive_actor = MultiProcessChildConnectionReceiveBehavior.create(
+            stream=s,
+            decoder=msgspec.msgpack.Decoder(
+                SpawnCommand | StopCommand | StoppedEvent | MessageCommand,
+                dec_hook=decoder,
+            ),
+            registry=reg,
+        )
+        # as we are already a child process we should not start a multi process nursery
+        # instead we will be a good child and only spawn new behaviors in our own process.
+        async with pyctor.open_nursery() as bn:
+            # spawn the receive behavior
+            await bn.spawn(receive_actor, options={"name": "system/receive"})
 
     logger.debug("closing subprocess")
 

@@ -1,6 +1,6 @@
 import builtins
 import sys
-from typing import Any, Callable, Type
+from typing import Any, Callable, Optional, Type
 
 from msgspec import Raw, Struct
 
@@ -16,7 +16,7 @@ class MultiProcessMessage(Struct, tag_field="msg_type", tag=str.lower):
 class SpawnCommand(MultiProcessMessage):
     reply_to: pyctor.types.Ref[pyctor.types.Ref[Any]]
     behavior: bytes
-    options: pyctor.types.SpawnOptions
+    options: Optional[pyctor.types.SpawnOptions] = None
 
 
 class StopCommand(MultiProcessMessage):

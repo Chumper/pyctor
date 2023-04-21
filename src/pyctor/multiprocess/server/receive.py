@@ -5,7 +5,14 @@ import tricycle
 import trio
 
 import pyctor
-from pyctor.multiprocess.messages import MessageCommand, MultiProcessMessage, SpawnCommand, StopCommand, decode_func, get_type
+from pyctor.multiprocess.messages import (
+    MessageCommand,
+    MultiProcessMessage,
+    SpawnCommand,
+    StopCommand,
+    decode_func,
+    get_type,
+)
 from pyctor.types import StoppedEvent
 
 logger = getLogger(__name__)
@@ -52,7 +59,9 @@ class MultiProcessServerConnectionReceiveActor:
                 self_ref.stop()
                 break
 
-    async def setup(self, ctx: pyctor.types.Context[MultiProcessMessage]) -> pyctor.types.BehaviorSetup[MultiProcessMessage]:
+    async def setup(
+        self, ctx: pyctor.types.Context[MultiProcessMessage]
+    ) -> pyctor.types.BehaviorSetup[MultiProcessMessage]:
         logger.debug("MultiProcess Server Receive Actor started")
         async with trio.open_nursery() as n:
             # start receive channel
@@ -75,7 +84,9 @@ class MultiProcessServerConnectionReceiveActor:
                         type = get_type(msg.type)
                         new_msg = msgspec.msgpack.decode(
                             msg.msg,
-                            dec_hook=decode_func(pyctor.configuration._custom_decoder_function),
+                            dec_hook=decode_func(
+                                pyctor.configuration._custom_decoder_function
+                            ),
                             type=type,
                         )
                         msg.ref.send(msg=new_msg)
@@ -109,5 +120,9 @@ class MultiProcessServerConnectionReceiveActor:
             logger.error(e)
             return pyctor.behaviors.Behaviors.Stop
 
-        setup = pyctor.behaviors.Behaviors.setup(MultiProcessServerConnectionReceiveActor(stream=stream, decoder=decoder, parent=parent).setup)
+        setup = pyctor.behaviors.Behaviors.setup(
+            MultiProcessServerConnectionReceiveActor(
+                stream=stream, decoder=decoder, parent=parent
+            ).setup
+        )
         return pyctor.behaviors.Behaviors.supervise(strategy=ignore, behavior=setup)

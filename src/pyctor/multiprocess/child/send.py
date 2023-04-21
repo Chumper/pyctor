@@ -4,7 +4,12 @@ import msgspec
 import trio
 
 import pyctor
-from pyctor.multiprocess.messages import MessageCommand, MultiProcessMessage, SpawnCommand, StopCommand
+from pyctor.multiprocess.messages import (
+    MessageCommand,
+    MultiProcessMessage,
+    SpawnCommand,
+    StopCommand,
+)
 from pyctor.types import StoppedEvent
 
 logger = getLogger(__name__)
@@ -19,7 +24,9 @@ class MultiProcessChildConnectionSendActor:
     _stream: trio.SocketStream
     _encoder: msgspec.msgpack.Encoder
 
-    def __init__(self, stream: trio.SocketStream, encoder: msgspec.msgpack.Encoder) -> None:
+    def __init__(
+        self, stream: trio.SocketStream, encoder: msgspec.msgpack.Encoder
+    ) -> None:
         self._stream = stream
         self._encoder = encoder
 
@@ -30,7 +37,9 @@ class MultiProcessChildConnectionSendActor:
         await self._stream.send_all(prefix)
         await self._stream.send_all(buffer)
 
-    async def setup(self, _: pyctor.types.Context[MultiProcessMessage]) -> pyctor.types.BehaviorSetup[MultiProcessMessage]:
+    async def setup(
+        self, _: pyctor.types.Context[MultiProcessMessage]
+    ) -> pyctor.types.BehaviorSetup[MultiProcessMessage]:
 
         logger.info("MultiProcess Child Send Actor started")
 
@@ -52,5 +61,9 @@ class MultiProcessChildConnectionSendActor:
         yield pyctor.behaviors.Behaviors.receive(setup_handler)
 
     @staticmethod
-    def create(stream: trio.SocketStream, encoder: msgspec.msgpack.Encoder) -> pyctor.types.BehaviorGeneratorFunction[MultiProcessMessage]:
-        return pyctor.behaviors.Behaviors.setup(MultiProcessChildConnectionSendActor(stream=stream, encoder=encoder).setup)
+    def create(
+        stream: trio.SocketStream, encoder: msgspec.msgpack.Encoder
+    ) -> pyctor.types.BehaviorGeneratorFunction[MultiProcessMessage]:
+        return pyctor.behaviors.Behaviors.setup(
+            MultiProcessChildConnectionSendActor(stream=stream, encoder=encoder).setup
+        )

@@ -7,13 +7,20 @@ import tricycle
 import trio
 
 import pyctor
-from pyctor.multiprocess.messages import MessageCommand, MultiProcessMessage, SpawnCommand, StopCommand, decode_func, get_type
+from pyctor.multiprocess.messages import (
+    MessageCommand,
+    MultiProcessMessage,
+    SpawnCommand,
+    StopCommand,
+    decode_func,
+    get_type,
+)
 from pyctor.types import StoppedEvent
 
 logger = getLogger(__name__)
 
 
-class MultiProcessChildConnectionReceiveActor:
+class MultiProcessChildConnectionReceiveBehavior:
     """
     Actor on the side where we spawned a new process.
     Responsible to receive messages from the wire and act on them
@@ -49,7 +56,9 @@ class MultiProcessChildConnectionReceiveActor:
                 self_ref.stop()
                 break
 
-    async def setup(self, ctx: pyctor.types.Context[MultiProcessMessage]) -> pyctor.types.BehaviorSetup[MultiProcessMessage]:
+    async def setup(
+        self, ctx: pyctor.types.Context[MultiProcessMessage]
+    ) -> pyctor.types.BehaviorSetup[MultiProcessMessage]:
 
         logger.info("MultiProcess Child Receive Actor started")
 
@@ -64,7 +73,9 @@ class MultiProcessChildConnectionReceiveActor:
                     case SpawnCommand(reply_to, behavior, options):
                         print(f"{os.getpid()}: spawn behavior")
                         decoded_behavior = cloudpickle.loads(behavior)
-                        spawned_ref = await n.spawn(behavior=decoded_behavior, options=options)
+                        spawned_ref = await n.spawn(
+                            behavior=decoded_behavior, options=options
+                        )
                         # send the ref back to the orginial spawner
                         reply_to.send(spawned_ref)
                         # force order, not sure if that is needed
@@ -78,7 +89,9 @@ class MultiProcessChildConnectionReceiveActor:
                         type = get_type(msg.type)
                         new_msg = msgspec.msgpack.decode(
                             msg.msg,
-                            dec_hook=decode_func(pyctor.configuration._custom_decoder_function),
+                            dec_hook=decode_func(
+                                pyctor.configuration._custom_decoder_function
+                            ),
                             type=type,
                         )
                         msg.ref.send(msg=new_msg)
@@ -92,10 +105,16 @@ class MultiProcessChildConnectionReceiveActor:
                 # if we have no children, then we should stop ourselves.
                 # When the behavior is started we will get an initial spawn message
                 # so it is guaranteed that the first message will spawn a child.
-                return pyctor.behaviors.Behaviors.Same if n.children else pyctor.behaviors.Behaviors.Stop
+                return (
+                    pyctor.behaviors.Behaviors.Same
+                    if n.children
+                    else pyctor.behaviors.Behaviors.Stop
+                )
 
             # return a type checked behavior
-            yield pyctor.behaviors.Behaviors.receive(setup_handler, type_check=MultiProcessMessage)
+            yield pyctor.behaviors.Behaviors.receive(
+                setup_handler, type_check=MultiProcessMessage
+            )
 
             # stop the stream
             logger.info("Closing stream!!!")
@@ -108,5 +127,7 @@ class MultiProcessChildConnectionReceiveActor:
         registry: pyctor.types.Registry,
     ) -> pyctor.types.BehaviorGeneratorFunction[MultiProcessMessage]:
         return pyctor.behaviors.Behaviors.setup(
-            MultiProcessChildConnectionReceiveActor(stream=stream, decoder=decoder, registry=registry).setup
+            MultiProcessChildConnectionReceiveBehavior(
+                stream=stream, decoder=decoder, registry=registry
+            ).setup
         )

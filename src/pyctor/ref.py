@@ -17,7 +17,7 @@ class RefImpl(pyctor.types.Ref[pyctor.types.T]):
     A ref implementation that is used for local and remote refs.
     This is the main reference that is being used in the system.
     """
-    
+
     strategy: pyctor.types.MessageStrategy
     """
     The strategy to use when messages should be send to this ref
@@ -144,7 +144,7 @@ class SystemRefImpl(pyctor.types.Ref[pyctor.types.T]):
     The creator of the ref is responsible for cleaning up the ref and all resources associated with it.
     The system ref is tied to a specific channel and can only be used in the process it was created in.
     """
-    
+
     registry: str = "system-ref"
     name: str
     url: str = "system-url"

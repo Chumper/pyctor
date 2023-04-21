@@ -4,7 +4,13 @@ from typing import AsyncGenerator, Callable
 import trio
 
 from pyctor.behaviors import Behaviors
-from pyctor.types import Behavior, BehaviorGenerator, BehaviorHandler, BehaviorSetup, T
+from pyctor.types import (
+    Behavior,
+    BehaviorFunctionHandler,
+    BehaviorGenerator,
+    BehaviorSetup,
+    T,
+)
 
 
 async def handle(msg: str) -> Behavior[str]:
@@ -18,7 +24,7 @@ async def setup() -> BehaviorSetup[str]:
 
 def test(func: Callable[[], BehaviorSetup[T]]) -> BehaviorGenerator[T]:
     @asynccontextmanager
-    async def f() -> AsyncGenerator[BehaviorHandler[T], None]:
+    async def f() -> AsyncGenerator[BehaviorFunctionHandler[T], None]:
         async for f in func():
             async with f as t:
                 yield t
@@ -28,7 +34,7 @@ def test(func: Callable[[], BehaviorSetup[T]]) -> BehaviorGenerator[T]:
 
 def cover(t: BehaviorGenerator[T]) -> BehaviorGenerator[T]:
     @asynccontextmanager
-    async def f() -> AsyncGenerator[BehaviorHandler[T], None]:
+    async def f() -> AsyncGenerator[BehaviorFunctionHandler[T], None]:
         async with t as f:
             yield f
 

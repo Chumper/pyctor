@@ -25,7 +25,13 @@ class TestProbe(pyctor.types.Ref[pyctor.types.T]):
         self.messages.append(msg)
 
     # implement the ask method of the Ref interface
-    async def ask(self, f: Callable[[pyctor.types.Ref[pyctor.types.V]], pyctor.types.ReplyProtocol[pyctor.types.V]]) -> pyctor.types.V:
+    async def ask(
+        self,
+        f: Callable[
+            [pyctor.types.Ref[pyctor.types.V]],
+            pyctor.types.ReplyProtocol[pyctor.types.V],
+        ],
+    ) -> pyctor.types.V:
         raise NotImplementedError("TestProbe.ask is not implemented")
 
     # implement the stop method of the Ref interface

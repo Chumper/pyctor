@@ -63,7 +63,9 @@ class SingleProcessDispatcher(pyctor.types.Dispatcher):
         context = pyctor.context.ContextImpl(ref=ref)
 
         # create the process
-        b = pyctor.behavior.process.BehaviorProcessorImpl[pyctor.types.T](behavior=behavior, channel=receive, context=context)
+        b = pyctor.behavior.process.BehaviorProcessorImpl[pyctor.types.T](
+            behavior=behavior, channel=receive, context=context
+        )
 
         # start in the nursery
         self._nursery.start_soon(self._behavior_lifecycle_task, b, ref)
@@ -90,7 +92,7 @@ async def spawn_system_behavior(
     behavior: pyctor.types.BehaviorGeneratorFunction[pyctor.types.T],
     options: pyctor.types.SpawnOptions,
     nursery: trio.Nursery,
-) -> pyctor.types.Ref[pyctor.types.T]:
+) -> pyctor.ref.SystemRefImpl[pyctor.types.T]:
     """
     Spawn a new behavior without a registry in this process.
     The behavior is the considered a system behavior and the caller is responsible to terminate the system behavior.
@@ -115,7 +117,9 @@ async def spawn_system_behavior(
     context = pyctor.context.ContextImpl(ref=ref)
 
     # create the process
-    b = pyctor.behavior.process.BehaviorProcessorImpl[pyctor.types.T](behavior=behavior, channel=receive, context=context)
+    b = pyctor.behavior.process.BehaviorProcessorImpl[pyctor.types.T](
+        behavior=behavior, channel=receive, context=context
+    )
 
     # start in the nursery
     nursery.start_soon(b.behavior_task)
