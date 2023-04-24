@@ -7,7 +7,9 @@ import pyctor.types
 logger = getLogger(__name__)
 
 
-class SuperviseBehaviorHandlerImpl(pyctor.types.BehaviorFunctionHandler[pyctor.types.T]):
+class SuperviseBehaviorHandlerImpl(
+    pyctor.types.BehaviorFunctionHandler[pyctor.types.T]
+):
     """
     Will wrap a BehaviorHandler in a supervise strategy
     """
@@ -23,7 +25,9 @@ class SuperviseBehaviorHandlerImpl(pyctor.types.BehaviorFunctionHandler[pyctor.t
         self._strategy = strategy
         self._behavior = behavior
 
-    async def handle(self, msg: pyctor.types.T) -> pyctor.types.Behavior[pyctor.types.T]:
+    async def handle(
+        self, msg: pyctor.types.T
+    ) -> pyctor.types.Behavior[pyctor.types.T]:
         try:
             return await self._behavior.handle(msg)
         except Exception as e:

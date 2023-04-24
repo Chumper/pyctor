@@ -19,7 +19,9 @@ class SpawnerImpl(pyctor.types.Spawner):
 
     _dispatcher: pyctor.types.Dispatcher
 
-    def __init__(self, nursery: trio.Nursery, dispatcher: pyctor.types.Dispatcher) -> None:
+    def __init__(
+        self, nursery: trio.Nursery, dispatcher: pyctor.types.Dispatcher
+    ) -> None:
         self._nursery = nursery
         self._dispatcher = dispatcher
         self._children = []

@@ -81,7 +81,9 @@ async def test_watch_nonexistent():
         watcher: Ref[str] = await reg.register(name="watcher2", channel=watcher_send)
 
         # create a bogus ref
-        bogus_ref = RefImpl(registry=reg.url, name="bogus", strategy=LOCAL, managing_registry=reg)
+        bogus_ref = RefImpl(
+            registry=reg.url, name="bogus", strategy=LOCAL, managing_registry=reg
+        )
 
         # watch a nonexistent ref with a simple string message
         await reg.watch(bogus_ref, watcher, "terminated")

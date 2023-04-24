@@ -22,7 +22,9 @@ from pyctor.multiprocess.messages import SpawnCommand, decode_func, encode_func
 
 
 # helper function to send a message through the stream
-async def send(channel: trio.abc.SendStream, msg: Any, encoder: msgspec.msgpack.Encoder) -> None:
+async def send(
+    channel: trio.abc.SendStream, msg: Any, encoder: msgspec.msgpack.Encoder
+) -> None:
     # decode the message
     buffer = encoder.encode(msg)
     # convert the length of the buffer to bytes
@@ -37,10 +39,14 @@ async def send(channel: trio.abc.SendStream, msg: Any, encoder: msgspec.msgpack.
 async def test_send_behavior():
 
     # get the default encoder
-    encoder = msgspec.msgpack.Encoder(enc_hook=encode_func(pyctor.configuration._custom_encoder_function))
+    encoder = msgspec.msgpack.Encoder(
+        enc_hook=encode_func(pyctor.configuration._custom_encoder_function)
+    )
 
     # get the default decoder
-    decoder = msgspec.msgpack.Decoder(dec_hook=decode_func(pyctor.configuration._custom_decoder_function))
+    decoder = msgspec.msgpack.Decoder(
+        dec_hook=decode_func(pyctor.configuration._custom_decoder_function)
+    )
 
     # create a new memory stream for testing
     send_stream, receive_stream = trio.testing.memory_stream_pair()
@@ -69,4 +75,8 @@ async def test_send_behavior():
         ref = await n.spawn(behavior=behavior, options={"name": "send_test"})
 
         # send a message through the stream
-        send(send_stream, SpawnCommand(reply_to=probe, behavior=pickled_behavior), encoder)
+        send(
+            send_stream,
+            SpawnCommand(reply_to=probe, behavior=pickled_behavior),
+            encoder,
+        )

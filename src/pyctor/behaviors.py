@@ -56,7 +56,9 @@ class Behaviors:
         async def f(
             _: pyctor.types.Context[pyctor.types.T],
         ) -> AsyncGenerator[pyctor.types.BehaviorFunctionHandler[pyctor.types.T], None]:
-            yield pyctor.behavior.impl.BehaviorHandlerImpl(behavior=func, type_check=type_check)
+            yield pyctor.behavior.impl.BehaviorHandlerImpl(
+                behavior=func, type_check=type_check
+            )
 
         return f
 
@@ -121,12 +123,16 @@ class Behaviors:
             c: pyctor.types.Context[pyctor.types.T],
         ) -> AsyncGenerator[pyctor.types.BehaviorFunctionHandler[pyctor.types.T], None]:
             # type check the strategy and behavior
-            check_type(strategy, Callable[[Exception], Awaitable[pyctor.types.BehaviorSignal]])
+            check_type(
+                strategy, Callable[[Exception], Awaitable[pyctor.types.BehaviorSignal]]
+            )
             check_type(behavior, pyctor.types.BehaviorGeneratorFunction[pyctor.types.T])  # type: ignore
 
             async with behavior(c) as f:
                 # we now have a BehaviorFunctionHandler[T]
                 # wrap it in a customr SupervisorBehaviorHandler
-                yield pyctor.behavior.supervise.SuperviseBehaviorHandlerImpl(strategy=strategy, behavior=f)
+                yield pyctor.behavior.supervise.SuperviseBehaviorHandlerImpl(
+                    strategy=strategy, behavior=f
+                )
 
         return f

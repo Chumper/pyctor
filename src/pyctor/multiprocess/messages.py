@@ -30,7 +30,7 @@ class MessageCommand(MultiProcessMessage):
     msg: Raw
 
 
-def get_type(type_name: str):
+def str_to_type(type_name: str):
     try:
         module, name = type_name.rsplit(".", maxsplit=1)
         return getattr(builtins, name)
@@ -77,3 +77,8 @@ def decode_func(func: Callable[[Type, Any], Any]) -> Callable[[Type, Any], Any]:
         return data
 
     return decode_message
+
+
+# function to get the type of a message
+def type_to_str(msg: Any) -> str:
+    return ".".join([type(msg).__module__, type(msg).__name__])

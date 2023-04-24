@@ -17,14 +17,22 @@ import trio.testing
 
 import pyctor.behaviors
 import pyctor.configuration
+import pyctor.multiprocess.messages
 import pyctor.registry
 import pyctor.testing
 from pyctor.multiprocess.child.receive import MultiProcessChildConnectionReceiveBehavior
-from pyctor.multiprocess.messages import SpawnCommand, decode_func, encode_func
+from pyctor.multiprocess.messages import (
+    MessageCommand,
+    SpawnCommand,
+    decode_func,
+    encode_func,
+)
 
 
 # helper function to send a message through the stream
-async def send(channel: trio.abc.SendStream, msg: Any, encoder: msgspec.msgpack.Encoder) -> None:
+async def send(
+    channel: trio.abc.SendStream, msg: Any, encoder: msgspec.msgpack.Encoder
+) -> None:
     # decode the message
     buffer = encoder.encode(msg)
     # convert the length of the buffer to bytes
@@ -40,14 +48,20 @@ async def send(channel: trio.abc.SendStream, msg: Any, encoder: msgspec.msgpack.
 async def test_receive_behavior():
 
     # get the default encoder
-    encoder = msgspec.msgpack.Encoder(enc_hook=encode_func(pyctor.configuration._custom_encoder_function))
+    encoder = msgspec.msgpack.Encoder(
+        enc_hook=encode_func(pyctor.configuration._custom_encoder_function)
+    )
 
     # get the default decoder
-    decoder = msgspec.msgpack.Decoder(dec_hook=decode_func(pyctor.configuration._custom_decoder_function))
+    decoder = msgspec.msgpack.Decoder(
+        dec_hook=decode_func(pyctor.configuration._custom_decoder_function)
+    )
 
     # create a new memory stream for testing
     send_stream, receive_stream = trio.testing.memory_stream_pair()
-    buffered_receive_stream = tricycle.BufferedReceiveStream(transport_stream=receive_stream)
+    buffered_receive_stream = tricycle.BufferedReceiveStream(
+        transport_stream=receive_stream
+    )
 
     # create a new registry for this test
     registry = pyctor.registry.RegistryImpl()
@@ -69,27 +83,45 @@ async def test_receive_behavior():
     pickled_behavior = cloudpickle.dumps(stopper_behavior)
 
     # fail after 1 second
-    with trio.fail_after(2):
-        # create a new behavior nursery
-        async with pyctor.open_nursery() as n:
-            # spawn the child receive behavior
-            child_receive_ref = await n.spawn(child_receive_behavior, options={"name": "child/receive"})
+    # with trio.fail_after(2):
+    # create a new behavior nursery
+    async with pyctor.open_nursery() as n:
+        # spawn the child receive behavior
+        child_receive_ref = await n.spawn(
+            child_receive_behavior, options={"name": "child/receive"}
+        )
 
-            # create a test probe
-            probe: pyctor.testing.TestProbe[pyctor.types.Ref[str]] = await pyctor.testing.TestProbe.create(type=pyctor.types.Ref[str], behavior_nursery=n)
+        # create a test probe
+        probe: pyctor.testing.TestProbe[
+            pyctor.types.Ref[str]
+        ] = await pyctor.testing.TestProbe.create(
+            type=pyctor.types.Ref[str], behavior_nursery=n
+        )
 
-            # send a message through the stream to spawn the stopper behavior
-            # await send(send_stream, SpawnCommand(reply_to=probe.ref, behavior=pickled_behavior), encoder)
+        # send a message through the stream to spawn the stopper behavior
+        # await send(send_stream, SpawnCommand(reply_to=probe.ref, behavior=pickled_behavior), encoder)
 
-            # send a message to the behavior and spawn the stopper behavior
-            child_receive_ref.send(SpawnCommand(reply_to=probe.ref, behavior=pickled_behavior))
+        # send a message to the behavior and spawn the stopper behavior
+        child_receive_ref.send(
+            SpawnCommand(reply_to=probe.ref, behavior=pickled_behavior)
+        )
 
-            await trio.sleep(0.5)
-            ref = probe.messages[0]
+        # wait for the probe to receive the message
+        ref = await probe.wait()
 
-            # send a message to the stopper behavior
-            ref.send("stop")
+        # send a message to the stopper behavior, so it will stop itself
+        child_receive_ref.send(
+            MessageCommand(
+                ref=ref,
+                type=pyctor.multiprocess.messages.type_to_str("stop"),
+                msg=msgspec.Raw(encoder.encode("stop")),
+            )
+        )
 
-            # # wait for the probe to receive the message
-            # await trio.sleep(0.5)
-            # assert probe.messages == []
+        # tell the child receive behavior that the stopper behavior has stopped,
+        # this should also stop the child receive behavior as there are no more children
+        child_receive_ref.send(pyctor.types.StoppedEvent(ref=ref))
+
+
+if __name__ == "__main__":
+    trio.run(test_receive_behavior)

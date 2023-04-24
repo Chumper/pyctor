@@ -25,10 +25,14 @@ class MultiProcessDispatcher(pyctor.types.Dispatcher):
     _dispatcher: pyctor.types.Dispatcher
     _nursery: trio.Nursery
     _processes: int
-    _server: Optional[pyctor.types.Ref[pyctor.multiprocess.messages.MultiProcessMessage]] = None
+    _server: Optional[
+        pyctor.types.Ref[pyctor.multiprocess.messages.MultiProcessMessage]
+    ] = None
     _lock: trio.Lock = trio.Lock()
 
-    def __init__(self, nursery: trio.Nursery, processes: int, dispatcher: pyctor.types.Dispatcher) -> None:
+    def __init__(
+        self, nursery: trio.Nursery, processes: int, dispatcher: pyctor.types.Dispatcher
+    ) -> None:
         super().__init__()
         self._nursery = nursery
         self._processes = processes
@@ -47,7 +51,9 @@ class MultiProcessDispatcher(pyctor.types.Dispatcher):
                 # check again now that we have the lock we can be sure that there is no race condition
                 if not self._server:
                     self._server = await self.dispatcher.dispatch(
-                        behavior=pyctor.multiprocess.server.server.MultiProcessServerBehavior.create(max_processes=self._processes),
+                        behavior=pyctor.multiprocess.server.server.MultiProcessServerBehavior.create(
+                            max_processes=self._processes
+                        ),
                         options={
                             "name": f"multiprocess-server-{uuid.uuid4()}",
                             "buffer_size": 0,
@@ -58,5 +64,9 @@ class MultiProcessDispatcher(pyctor.types.Dispatcher):
         behavior_bytes = cloudpickle.dumps(behavior)
 
         # ask the server to spawn a new behavior
-        remote_ref = await self._server.ask(lambda x: pyctor.multiprocess.messages.SpawnCommand(reply_to=x, behavior=behavior_bytes, options=options))
+        remote_ref = await self._server.ask(
+            lambda x: pyctor.multiprocess.messages.SpawnCommand(
+                reply_to=x, behavior=behavior_bytes, options=options
+            )
+        )
         return remote_ref
