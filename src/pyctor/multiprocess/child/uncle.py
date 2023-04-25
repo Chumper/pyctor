@@ -49,7 +49,10 @@ class UncleBehavior:
                         reply_to, behavior, options
                     ):
                         print(f"{os.getpid()}: uncle is spawning behavior")
-                        decoded_behavior = cloudpickle.loads(behavior)
+                        try:
+                            decoded_behavior = cloudpickle.loads(behavior)
+                        except Exception as e:
+                            return pyctor.behaviors.Behaviors.Ignore
                         spawned_ref = await n.spawn(
                             behavior=decoded_behavior, options=options
                         )

@@ -13,14 +13,12 @@ import trio
 import pyctor
 import pyctor.configuration
 import pyctor.registry
-from pyctor.configuration import (
-    set_custom_decoder_function,
-    set_custom_encoder_function,
-)
+from pyctor.configuration import set_custom_decoder_function, set_custom_encoder_function
 from pyctor.dispatch.single_process import spawn_system_behavior
 from pyctor.multiprocess.child.receive import MultiProcessChildConnectionReceiveBehavior
 from pyctor.multiprocess.child.send import MultiProcessChildConnectionSendActor
 from pyctor.multiprocess.messages import MessageCommand, SpawnCommand, StopCommand
+from pyctor.multiprocess.mp_fixup_main import _fixup_main_from_name, _fixup_main_from_path, _mp_figure_out_main
 from pyctor.types import StoppedEvent
 
 logger = getLogger(__name__)
@@ -59,6 +57,14 @@ async def main() -> None:
     logging.basicConfig(level=log_level)
 
     logger.debug("connecting to parent port=%s", str(port))
+
+    # setup the main module
+    main_data = _mp_figure_out_main()
+    print(main_data)
+    if 'init_main_from_name' in main_data:
+        _fixup_main_from_name(main_data['init_main_from_name'])
+    elif 'init_main_from_path' in main_data:
+        _fixup_main_from_path(main_data['init_main_from_path'])
 
     # Set
     stream = await trio.open_tcp_stream("127.0.0.1", port=port)

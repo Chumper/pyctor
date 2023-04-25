@@ -12,14 +12,7 @@ import trio
 import pyctor
 import pyctor.configuration
 from pyctor.behaviors import Behaviors
-from pyctor.multiprocess.messages import (
-    MessageCommand,
-    MultiProcessMessage,
-    SpawnCommand,
-    StopCommand,
-    decode_func,
-    encode_func,
-)
+from pyctor.multiprocess.messages import MessageCommand, MultiProcessMessage, SpawnCommand, StopCommand, decode_func, encode_func
 from pyctor.multiprocess.server.receive import MultiProcessServerConnectionReceiveActor
 from pyctor.multiprocess.server.send import MultiProcessServerConnectionSendActor
 from pyctor.types import Behavior, BehaviorNursery, BehaviorSetup, Context, StoppedEvent
@@ -118,7 +111,7 @@ class MultiProcessServerBehavior:
         spawn_cmd = [
             sys.executable,
             "-m",
-            "pyctor.multiprocess.child",
+            "pyctor.multiprocess.child.main",
             "--port",
             str(port),
             "--log-level",

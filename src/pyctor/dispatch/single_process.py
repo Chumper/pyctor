@@ -36,7 +36,7 @@ class SingleProcessDispatcher(pyctor.types.Dispatcher):
     async def dispatch(
         self,
         behavior: pyctor.types.BehaviorGeneratorFunction[pyctor.types.T],
-        options: pyctor.types.SpawnOptions,
+        options: pyctor.types.SpawnOptions | None,
     ) -> pyctor.types.Ref[pyctor.types.T]:
 
         if not options:

@@ -299,7 +299,7 @@ class Dispatcher(ABC):
     """
 
     async def dispatch(
-        self, behavior: BehaviorGeneratorFunction[T], options: SpawnOptions
+        self, behavior: BehaviorGeneratorFunction[T], options: SpawnOptions | None
     ) -> Ref[T]:
         """
         Spawns the given behavior in a process and provides the Ref to the spawned behavior
